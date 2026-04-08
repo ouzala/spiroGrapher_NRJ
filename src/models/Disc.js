@@ -2,12 +2,13 @@
  * Disc: A rotating disc that drives the kinematic system
  */
 class Disc {
-    constructor(id, x, y, radius, rpm) {
+    constructor(id, x, y, radius, rpm, torque = Infinity) {
         this.id = id;                    // unique identifier
         this.x = x;                      // center x position (mm)
         this.y = y;                      // center y position (mm)
         this.radius = radius;            // radius (mm)
         this.rpm = rpm;                  // rotation speed (revolutions per minute)
+        this.torque = torque;            // drive torque (Infinity keeps the disc hard-driven)
         this.angle = 0;                  // current angle (radians, 0 at construction)
         this.targetRpm = rpm;            // target rpm for smooth ramp-up
         this.rampStartTime = null;       // when ramp started
@@ -53,6 +54,22 @@ class Disc {
         this.rampStartTime = performance.now();
     }
 
+    setTorque(newTorque) {
+        this.torque = newTorque;
+    }
+
+    isHardDriven() {
+        return !Number.isFinite(this.torque);
+    }
+
+    getDriveMode() {
+        return this.isHardDriven() ? 'hardDrive' : 'softAttachment';
+    }
+
+    getLegacyDriveBehavior() {
+        return this.isHardDriven() ? 'prescribedAngle' : 'softDiscAttachment';
+    }
+
     /**
      * Get point on disc surface at given distance from center
      * @param {number} distance - distance from center (mm)
@@ -77,7 +94,7 @@ class Disc {
     }
 
     clone() {
-        const d = new Disc(this.id, this.x, this.y, this.radius, this.rpm);
+        const d = new Disc(this.id, this.x, this.y, this.radius, this.rpm, this.torque);
         d.angle = this.angle;
         d.targetRpm = this.targetRpm;
         return d;

@@ -6,7 +6,7 @@ class App {
         this.canvas = document.getElementById('canvas');
         this.system = new System();
         this.renderer = new CanvasRenderer(this.canvas);
-        this.solver = new KinematicSolver(this.system);
+        this.solver = new EnergySolver(this.system);
         this.drawingTools = new DrawingTools(this);
         this.playbackControls = new PlaybackControls(this);
 
@@ -18,6 +18,7 @@ class App {
         this.fixedStepMs = 1000 / 60;
         this.initialSystem = null;
         this.showMechanics = true;
+        this.lastSolveResult = null;
 
         this.setupEventListeners();
         this.startAnimationLoop();
@@ -93,18 +94,10 @@ class App {
             return currentTime;
         }
 
-        for (const disc of this.system.discs) {
-            if (useDiscUpdate && dtMs > 0) {
-                disc.update(dtMs, this.timeScale);
-                continue;
-            }
-
-            const radsPerMs = (disc.rpm / 60) * 2 * Math.PI / 1000;
-            disc.angle += radsPerMs * dtMs * this.timeScale;
-            disc.angle = ((disc.angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
-        }
+        this.advanceDiscAngles(dtMs, useDiscUpdate);
 
         const result = this.solver.solve();
+        this.lastSolveResult = result;
         if (!result.success) {
             console.warn('Solver warning:', result.error);
             this.drawingTools.refreshGeometry();
@@ -131,6 +124,19 @@ class App {
 
         this.playbackControls.updateTimeDisplay(nextTime);
         return nextTime;
+    }
+
+    advanceDiscAngles(dtMs, useDiscUpdate = false) {
+        for (const disc of this.system.discs) {
+            if (useDiscUpdate && dtMs > 0) {
+                disc.update(dtMs, this.timeScale);
+                continue;
+            }
+
+            const radsPerMs = (disc.rpm / 60) * 2 * Math.PI / 1000;
+            disc.angle += radsPerMs * dtMs * this.timeScale;
+            disc.angle = ((disc.angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        }
     }
 
     stepSimulation(direction) {
@@ -187,7 +193,9 @@ class App {
         this.pauseTime = null;
         this.lastFrameTime = 0;
         this.system.simTime = 0;
-        this.solver.lastSolvedAngles.clear();
+        if (this.solver.lastSolvedNodePositions) {
+            this.solver.lastSolvedNodePositions.clear();
+        }
         document.getElementById('time-display').textContent = '0.00s';
     }
 
@@ -208,14 +216,27 @@ class App {
 
         const dump = {
             simTime: this.roundValue(this.system.simTime || 0),
+            solver: this.solver.constructor.name,
+            lastSolveResult: this.lastSolveResult ? {
+                success: this.lastSolveResult.success,
+                error: this.lastSolveResult.error,
+                residualNorm: this.roundValue(this.lastSolveResult.residualNorm),
+                energy: this.roundValue(this.lastSolveResult.energy),
+                iterationCount: this.lastSolveResult.iterationCount,
+                warnings: this.lastSolveResult.warnings || []
+            } : null,
             validation: this.system.validate(),
             constraintAnalysis: this.system.analyzeConstraints(),
+            driveAnalysis: this.system.analyzeDiscDrives(),
             discs: this.system.discs.map(disc => ({
                 id: disc.id,
                 center: this.roundPoint({ x: disc.x, y: disc.y }),
                 radius: this.roundValue(disc.radius),
                 rpm: this.roundValue(disc.rpm),
                 targetRpm: this.roundValue(disc.targetRpm),
+                torque: Number.isFinite(disc.torque) ? this.roundValue(disc.torque) : 'infinite',
+                driveMode: disc.getDriveMode(),
+                legacyDriveBehavior: disc.getLegacyDriveBehavior(),
                 angle: this.roundValue(disc.angle)
             })),
             chains: this.system.stickChains.map(chain => {
@@ -264,6 +285,8 @@ class App {
                     sticks: chain.sticks.map(stick => ({
                         id: stick.id,
                         length: this.roundValue(stick.length),
+                        actualLength: this.roundValue(stick.actualLength),
+                        stiffness: this.roundValue(stick.stiffness),
                         angle: this.roundValue(stick.angle),
                         start: this.roundPoint({ x: stick.startX, y: stick.startY }),
                         end: this.roundPoint({ x: stick.endX, y: stick.endY })

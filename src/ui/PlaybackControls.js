@@ -55,11 +55,7 @@ class PlaybackControls {
             return;
         }
 
-        const analysis = this.app.system.analyzeConstraints();
-        if (!analysis.sufficient) {
-            alert('Cannot play: ' + analysis.message);
-            return;
-        }
+        const driveAnalysis = this.app.system.analyzeDiscDrives();
 
         const now = performance.now();
         if (this.app.pauseTime !== null) {
@@ -72,6 +68,10 @@ class PlaybackControls {
         this.app.isPlaying = true;
         this.app.pauseTime = null;
         this.syncPlaybackButtons();
+
+        if (driveAnalysis.warnings.length > 0) {
+            this.app.drawingTools.updateStatus(driveAnalysis.warnings[0]);
+        }
     }
 
     pause() {
@@ -179,6 +179,7 @@ class PlaybackControls {
                     <span>Disc ${disc.id}</span>
                     <span id="disc-rpm-value-${disc.id}">${disc.targetRpm.toFixed(0)} rpm</span>
                 </div>
+                <div class="disc-rpm-empty" id="disc-drive-note-${disc.id}">${disc.isHardDriven() ? 'Hard drive: prescribed angle' : 'Finite torque: soft disc attachment'}</div>
                 <input
                     type="range"
                     min="-300"
@@ -207,13 +208,17 @@ class PlaybackControls {
         for (const disc of this.app.system.discs) {
             const slider = this.rpmContainer.querySelector(`[data-disc-rpm="${disc.id}"]`);
             const label = document.getElementById(`disc-rpm-value-${disc.id}`);
-            if (!slider || !label) continue;
+            const note = document.getElementById(`disc-drive-note-${disc.id}`);
+            if (!slider || !label || !note) continue;
 
             const desiredValue = String(Math.round(disc.targetRpm));
             if (document.activeElement !== slider && slider.value !== desiredValue) {
                 slider.value = desiredValue;
             }
             label.textContent = `${disc.targetRpm.toFixed(0)} rpm`;
+            note.textContent = disc.isHardDriven()
+                ? 'Hard drive: prescribed angle'
+                : 'Finite torque: soft disc attachment';
         }
     }
 

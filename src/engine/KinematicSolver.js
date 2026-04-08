@@ -22,9 +22,16 @@ class KinematicSolver {
             return { success: false, error: validation.message, stickAngles: [] };
         }
 
+        const driveAnalysis = this.system.analyzeDiscDrives();
+
         const analysis = this.system.analyzeConstraints();
         if (!analysis.sufficient) {
-            return { success: false, error: analysis.message, stickAngles: [] };
+            return {
+                success: false,
+                error: analysis.message,
+                stickAngles: [],
+                warnings: driveAnalysis.warnings
+            };
         }
 
         const variables = this.getVariableSticks();
@@ -43,14 +50,24 @@ class KinematicSolver {
             if (currentNorm < this.convergenceTolerance) {
                 this.commitSolvedAngles(variables, angles);
                 this.updatePencilPositions();
-                return { success: true, error: '', stickAngles: angles };
+                return {
+                    success: true,
+                    error: '',
+                    stickAngles: angles,
+                    warnings: driveAnalysis.warnings
+                };
             }
 
             const jacobian = this.computeJacobian(angles, variables, residuals);
             const delta = this.solveLeastSquares(jacobian, residuals);
             if (!delta) {
                 this.restoreCommittedAngles(variables);
-                return { success: false, error: 'Singular Jacobian', stickAngles: angles };
+                return {
+                    success: false,
+                    error: 'Singular Jacobian',
+                    stickAngles: angles,
+                    warnings: driveAnalysis.warnings
+                };
             }
 
             const nextAngles = this.applyStep(angles, delta);
@@ -58,7 +75,12 @@ class KinematicSolver {
 
             if (!accepted) {
                 this.restoreCommittedAngles(variables);
-                return { success: false, error: 'Failed to decrease residual', stickAngles: angles };
+                return {
+                    success: false,
+                    error: 'Failed to decrease residual',
+                    stickAngles: angles,
+                    warnings: driveAnalysis.warnings
+                };
             }
 
             angles = accepted.angles;
@@ -67,7 +89,12 @@ class KinematicSolver {
 
         this.updateStickPositions(angles, variables);
         this.commitSolvedAngles(variables, angles);
-        return { success: currentNorm < this.convergenceTolerance, error: 'Failed to converge', stickAngles: angles };
+        return {
+            success: currentNorm < this.convergenceTolerance,
+            error: 'Failed to converge',
+            stickAngles: angles,
+            warnings: driveAnalysis.warnings
+        };
     }
 
     getVariableSticks() {

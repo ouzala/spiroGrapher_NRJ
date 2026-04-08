@@ -36,6 +36,7 @@ class DrawingTools {
 
         document.getElementById('btn-close-stick-menu').addEventListener('click', () => this.closeStickMenu());
         document.getElementById('btn-delete-stick').addEventListener('click', () => this.deleteStick());
+        document.getElementById('btn-save-stick').addEventListener('click', () => this.saveStickSettings());
         document.getElementById('btn-add-next-stick').addEventListener('click', () => this.startAppendStick());
 
         const canvas = this.app.renderer.canvas;
@@ -332,6 +333,7 @@ class DrawingTools {
         document.getElementById('modal-disc-title').textContent = 'Set Disc RPM';
         document.getElementById('input-disc-radius').value = this.pendingDiscRadius.toFixed(1);
         document.getElementById('input-disc-rpm').value = 60;
+        document.getElementById('input-disc-torque').value = 'infinite';
         document.getElementById('btn-delete-disc').style.display = 'none';
         this.openModal('modal-disc');
     }
@@ -346,6 +348,7 @@ class DrawingTools {
         document.getElementById('modal-disc-title').textContent = `Edit Disc ${disc.id}`;
         document.getElementById('input-disc-radius').value = disc.radius;
         document.getElementById('input-disc-rpm').value = disc.targetRpm;
+        document.getElementById('input-disc-torque').value = Number.isFinite(disc.torque) ? disc.torque : 'infinite';
         document.getElementById('btn-delete-disc').style.display = 'inline-flex';
         this.openModal('modal-disc');
     }
@@ -353,9 +356,10 @@ class DrawingTools {
     confirmDisc() {
         const radius = Math.max(5, parseFloat(document.getElementById('input-disc-radius').value) || 30);
         const rpm = parseFloat(document.getElementById('input-disc-rpm').value) || 60;
+        const torque = this.parseTorqueInput(document.getElementById('input-disc-torque').value);
 
         if (this.discModalMode === 'add' && this.pendingDiscStart) {
-            this.app.system.addDisc(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm);
+            this.app.system.addDisc(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, torque);
             this.pendingDiscStart = null;
             this.pendingDiscRadius = 0;
             this.activateTool('disc');
@@ -364,6 +368,7 @@ class DrawingTools {
             if (disc) {
                 disc.radius = radius;
                 disc.setRpm(rpm);
+                disc.setTorque(torque);
                 if (!this.app.isPlaying) {
                     disc.rpm = rpm;
                 }
@@ -392,6 +397,20 @@ class DrawingTools {
         this.closeDiscModal();
         this.refreshGeometry();
         this.updateStatus('Disc deleted.');
+    }
+
+    parseTorqueInput(rawValue) {
+        const value = String(rawValue ?? '').trim().toLowerCase();
+        if (!value || value === 'inf' || value === 'infinite' || value === 'infinity') {
+            return Infinity;
+        }
+
+        const parsed = parseFloat(value);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+            return Infinity;
+        }
+
+        return parsed;
     }
 
     handleStickToolClick(world, canvasX, canvasY, hit) {
@@ -495,7 +514,7 @@ class DrawingTools {
         const endPos = this.pendingStick.previewEnd;
         const length = Math.max(1, MathUtils.distance(startPos.x, startPos.y, endPos.x, endPos.y));
         const angle = MathUtils.angleToPoint(startPos.x, startPos.y, endPos.x, endPos.y);
-        const stick = new Stick(this.app.system.nextStickId(), length);
+        const stick = new Stick(this.app.system.nextStickId(), length, 999);
         stick.setPosition(startPos.x, startPos.y, angle);
         chain.addStick(stick);
         chain.endAttachment = { ...this.pendingStick.previewAttachment };
@@ -509,12 +528,14 @@ class DrawingTools {
     openStickMenu(chainId, stickIndex) {
         this.editingStickTarget = { chainId, stickIndex };
         const chain = this.app.system.getStickChain(chainId);
+        const stick = chain?.getStick(stickIndex) || null;
         const isLast = chain ? stickIndex === chain.sticks.length - 1 : false;
         document.getElementById('stick-menu-title').textContent = `Stick ${stickIndex + 1} Actions`;
+        document.getElementById('input-stick-stiffness').value = stick ? stick.stiffness : 999;
         document.getElementById('btn-add-next-stick').disabled = !isLast;
         document.getElementById('stick-menu-note').textContent = isLast
-            ? 'You can delete this stick or append another stick to the chain.'
-            : 'Only the last stick in a chain can receive a new next stick.';
+            ? 'You can update this segment stiffness, delete the stick, or append another stick to the chain.'
+            : 'You can update this segment stiffness or delete the stick. Only the last stick in a chain can receive a new next stick.';
         this.openModal('modal-stick');
     }
 
@@ -542,6 +563,20 @@ class DrawingTools {
             previewAttachment: { type: 'openEnd' }
         };
         this.updateStatus('Click to place the next stick end.');
+    }
+
+    saveStickSettings() {
+        if (!this.editingStickTarget) return;
+        const chainId = this.editingStickTarget.chainId;
+        const stickIndex = this.editingStickTarget.stickIndex;
+        const chain = this.app.system.getStickChain(chainId);
+        const stick = chain?.getStick(stickIndex) || null;
+        if (!stick) return;
+
+        stick.stiffness = Math.max(0, parseFloat(document.getElementById('input-stick-stiffness').value) || 0);
+        this.closeStickMenu();
+        this.refreshGeometry();
+        this.updateStatus(`Stick ${stickIndex + 1} updated.`);
     }
 
     deleteStick() {
@@ -740,27 +775,10 @@ class DrawingTools {
     }
 
     refreshGeometry() {
-        for (const chain of this.app.system.stickChains) {
-            if (chain.sticks.length === 0) continue;
-
-            let current = this.app.solver.getAttachmentPosition(chain.startAttachment);
-            for (let i = 0; i < chain.sticks.length; i++) {
-                const stick = chain.sticks[i];
-                if (i === chain.sticks.length - 1 && this.app.system.isHardEndAttachment(chain.endAttachment)) {
-                    const target = this.app.solver.getAttachmentPosition(chain.endAttachment);
-                    const angle = MathUtils.angleToPoint(current.x, current.y, target.x, target.y);
-                    stick.setPosition(current.x, current.y, angle);
-                } else {
-                    stick.setPosition(current.x, current.y, stick.angle || 0);
-                }
-                current = { x: stick.endX, y: stick.endY };
-            }
-        }
-
         const validation = this.app.system.validate();
-        const analysis = this.app.system.analyzeConstraints();
-        if (validation.valid && analysis.sufficient) {
+        if (validation.valid) {
             const result = this.app.solver.solve();
+            this.app.lastSolveResult = result;
             if (!result.success) {
                 this.app.solver.updatePencilPositions();
             }
@@ -773,7 +791,11 @@ class DrawingTools {
     validateSystem() {
         this.refreshGeometry();
         const validation = this.app.system.validate();
-        this.updateStatus(validation.message);
+        const driveAnalysis = this.app.system.analyzeDiscDrives();
+        const message = driveAnalysis.warnings.length > 0
+            ? `${validation.message} ${driveAnalysis.warnings[0]}`
+            : validation.message;
+        this.updateStatus(message);
     }
 
     clearSystem() {

@@ -15,8 +15,8 @@ class System {
         this.simTime = 0;
     }
 
-    addDisc(x, y, radius, rpm) {
-        const disc = new Disc(this.nextDiscId++, x, y, radius, rpm);
+    addDisc(x, y, radius, rpm, torque = Infinity) {
+        const disc = new Disc(this.nextDiscId++, x, y, radius, rpm, torque);
         this.discs.push(disc);
         return disc;
     }
@@ -90,6 +90,23 @@ class System {
 
     getTotalStickCount() {
         return this.stickChains.reduce((count, chain) => count + chain.sticks.length, 0);
+    }
+
+    analyzeDiscDrives() {
+        const finiteTorqueDiscs = this.discs.filter(disc => Number.isFinite(disc.torque));
+        const warnings = [];
+
+        if (finiteTorqueDiscs.length > 0) {
+            const labels = finiteTorqueDiscs.map(disc => `Disc ${disc.id}`).join(', ');
+            warnings.push(`${labels} use finite torque and are solved as soft disc attachments. Disc rotation is still prescribed by RPM; full torque-driven disc dynamics are not implemented yet.`);
+        }
+
+        return {
+            hardDrivenCount: this.discs.length - finiteTorqueDiscs.length,
+            torqueLimitedCount: finiteTorqueDiscs.length,
+            finiteTorqueDiscIds: finiteTorqueDiscs.map(disc => disc.id),
+            warnings
+        };
     }
 
     normalizeAttachmentType(type) {
@@ -258,7 +275,9 @@ class System {
 
     getStatus() {
         const validation = this.validate();
-        return `Discs: ${this.discs.length}, Chains: ${this.stickChains.length}, Anchors: ${this.anchors.length}, Pencils: ${this.pencils.length}. ${validation.message}`;
+        const driveAnalysis = this.analyzeDiscDrives();
+        const driveNote = driveAnalysis.warnings.length > 0 ? ` ${driveAnalysis.warnings[0]}` : '';
+        return `Discs: ${this.discs.length}, Chains: ${this.stickChains.length}, Anchors: ${this.anchors.length}, Pencils: ${this.pencils.length}. ${validation.message}${driveNote}`;
     }
 
     removeDisc(discId) {
