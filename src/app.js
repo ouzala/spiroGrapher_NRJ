@@ -1,0 +1,370 @@
+/**
+ * Main Application: Orchestrates the kinematic visualizer
+ */
+class App {
+    constructor() {
+        this.canvas = document.getElementById('canvas');
+        this.system = new System();
+        this.renderer = new CanvasRenderer(this.canvas);
+        this.solver = new KinematicSolver(this.system);
+        this.drawingTools = new DrawingTools(this);
+        this.playbackControls = new PlaybackControls(this);
+
+        this.isPlaying = false;
+        this.startTime = null;
+        this.pauseTime = null;
+        this.timeScale = 1;
+        this.lastFrameTime = 0;
+        this.fixedStepMs = 1000 / 60;
+        this.initialSystem = null;
+        this.showMechanics = true;
+
+        this.setupEventListeners();
+        this.startAnimationLoop();
+    }
+
+    setupEventListeners() {
+        window.addEventListener('resize', () => this.onWindowResize());
+        window.addEventListener('contextmenu', event => event.preventDefault());
+        document.getElementById('btn-print').addEventListener('click', () => this.printSystemConfiguration());
+        document.getElementById('btn-load-test').addEventListener('click', () => this.loadDebugTestConfiguration());
+        this.onWindowResize();
+        this.drawingTools.refreshGeometry();
+        this.playbackControls.syncSidebar();
+    }
+
+    onWindowResize() {
+        const canvasArea = document.querySelector('.canvas-area');
+        this.renderer.resize(canvasArea.clientWidth, canvasArea.clientHeight);
+    }
+
+    pauseForEditing() {
+        if (this.isPlaying) {
+            this.playbackControls.pause();
+        }
+    }
+
+    getElapsedTime() {
+        if (!this.isPlaying && !this.startTime) return 0;
+        if (this.pauseTime !== null) return this.pauseTime;
+
+        const now = performance.now();
+        if (!this.startTime) {
+            this.startTime = now;
+        }
+        return (now - this.startTime) / 1000;
+    }
+
+    startAnimationLoop() {
+        const loop = () => {
+            this.update();
+            this.render();
+            requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+    }
+
+    update() {
+        const now = performance.now();
+        const dt = this.lastFrameTime ? now - this.lastFrameTime : 0;
+        this.lastFrameTime = now;
+
+        if (!this.isPlaying) {
+            this.system.simTime = this.getElapsedTime();
+            this.playbackControls.syncSidebar();
+            this.drawingTools.updateStatus();
+            return;
+        }
+
+        this.advanceSimulation(dt, { useDiscUpdate: true, recordTrace: true, reverseTraceCleanup: false });
+        this.playbackControls.syncSidebar();
+    }
+
+    advanceSimulation(dtMs, options = {}) {
+        const {
+            useDiscUpdate = false,
+            recordTrace = true,
+            reverseTraceCleanup = dtMs < 0
+        } = options;
+
+        if (!Number.isFinite(dtMs) || dtMs === 0) {
+            const currentTime = this.system.simTime || 0;
+            this.playbackControls.updateTimeDisplay(currentTime);
+            return currentTime;
+        }
+
+        for (const disc of this.system.discs) {
+            if (useDiscUpdate && dtMs > 0) {
+                disc.update(dtMs, this.timeScale);
+                continue;
+            }
+
+            const radsPerMs = (disc.rpm / 60) * 2 * Math.PI / 1000;
+            disc.angle += radsPerMs * dtMs * this.timeScale;
+            disc.angle = ((disc.angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+        }
+
+        const result = this.solver.solve();
+        if (!result.success) {
+            console.warn('Solver warning:', result.error);
+            this.drawingTools.refreshGeometry();
+        } else {
+            this.solver.updatePencilPositions();
+        }
+
+        const nextTime = Math.max(0, (this.system.simTime || 0) + (dtMs / 1000));
+        this.system.simTime = nextTime;
+
+        for (const pencil of this.system.pencils) {
+            if (reverseTraceCleanup) {
+                pencil.traces = pencil.traces.filter(trace => trace.timestamp <= nextTime);
+            }
+
+            if (recordTrace) {
+                pencil.updatePosition(pencil.x, pencil.y, nextTime);
+            } else {
+                pencil.cleanupTraces(nextTime);
+            }
+
+            pencil.cleanupTraces(nextTime);
+        }
+
+        this.playbackControls.updateTimeDisplay(nextTime);
+        return nextTime;
+    }
+
+    stepSimulation(direction) {
+        if (direction !== 1 && direction !== -1) return;
+
+        if (this.isPlaying) {
+            this.playbackControls.pause();
+        }
+
+        let stepMs = direction * this.fixedStepMs;
+        if (direction < 0) {
+            const maxBackwardMs = (this.system.simTime || 0) * 1000;
+            stepMs = -Math.min(this.fixedStepMs, maxBackwardMs);
+            if (stepMs === 0) {
+                this.playbackControls.updateTimeDisplay(this.system.simTime || 0);
+                return;
+            }
+        }
+
+        const steppedTime = this.advanceSimulation(stepMs, {
+            useDiscUpdate: false,
+            recordTrace: direction > 0,
+            reverseTraceCleanup: direction < 0
+        });
+
+        this.pauseTime = steppedTime;
+        this.startTime = performance.now() - (steppedTime * 1000);
+        this.lastFrameTime = performance.now();
+        this.drawingTools.updateStatus();
+    }
+
+    render() {
+        this.renderer.render(this.system, { showMechanics: this.showMechanics });
+
+        if (this.showMechanics && this.drawingTools.pendingDiscStart) {
+            this.renderer.drawPendingDisc(
+                this.drawingTools.pendingDiscStart.x,
+                this.drawingTools.pendingDiscStart.y,
+                this.drawingTools.pendingDiscRadius
+            );
+        }
+
+        if (this.showMechanics && this.drawingTools.pendingStick) {
+            const preview = this.drawingTools.getPendingStickPreview();
+            if (preview) {
+                this.renderer.drawPendingStick(preview.start.x, preview.start.y, preview.end.x, preview.end.y);
+            }
+        }
+    }
+
+    resetPlaybackState() {
+        this.isPlaying = false;
+        this.startTime = performance.now();
+        this.pauseTime = null;
+        this.lastFrameTime = 0;
+        this.system.simTime = 0;
+        this.solver.lastSolvedAngles.clear();
+        document.getElementById('time-display').textContent = '0.00s';
+    }
+
+    roundValue(value) {
+        return Number.isFinite(value) ? Number(value.toFixed(3)) : value;
+    }
+
+    roundPoint(point) {
+        if (!point) return null;
+        return {
+            x: this.roundValue(point.x),
+            y: this.roundValue(point.y)
+        };
+    }
+
+    printSystemConfiguration() {
+        this.drawingTools.refreshGeometry();
+
+        const dump = {
+            simTime: this.roundValue(this.system.simTime || 0),
+            validation: this.system.validate(),
+            constraintAnalysis: this.system.analyzeConstraints(),
+            discs: this.system.discs.map(disc => ({
+                id: disc.id,
+                center: this.roundPoint({ x: disc.x, y: disc.y }),
+                radius: this.roundValue(disc.radius),
+                rpm: this.roundValue(disc.rpm),
+                targetRpm: this.roundValue(disc.targetRpm),
+                angle: this.roundValue(disc.angle)
+            })),
+            chains: this.system.stickChains.map(chain => {
+                const nodes = [];
+                if (chain.startAttachment) {
+                    nodes.push({
+                        kind: 'start',
+                        point: this.roundPoint(this.solver.getAttachmentPosition(chain.startAttachment))
+                    });
+                }
+
+                for (let i = 0; i < chain.sticks.length; i++) {
+                    const stick = chain.sticks[i];
+                    nodes.push({
+                        kind: i === chain.sticks.length - 1 ? 'end' : `joint_${i + 1}`,
+                        point: this.roundPoint(stick.getEndPoint())
+                    });
+                }
+
+                const anchors = [];
+                const endType = this.system.getAttachmentType(chain.endAttachment);
+                if (endType === 'anchor' || endType === 'fixedPoint') {
+                    anchors.push({
+                        type: endType,
+                        point: this.roundPoint(this.solver.getAttachmentPosition(chain.endAttachment)),
+                        hostStickId: endType === 'anchor' ? chain.endAttachment.id : null,
+                        distanceOnHost: endType === 'anchor' ? this.roundValue(chain.endAttachment.distance) : null
+                    });
+                }
+
+                return {
+                    id: chain.id,
+                    startAttachment: chain.startAttachment ? {
+                        ...chain.startAttachment,
+                        normalizedType: this.system.getAttachmentType(chain.startAttachment),
+                        distance: this.roundValue(chain.startAttachment.distance),
+                        angleOffset: this.roundValue(chain.startAttachment.angleOffset)
+                    } : null,
+                    endAttachment: chain.endAttachment ? {
+                        ...chain.endAttachment,
+                        normalizedType: endType,
+                        distance: this.roundValue(chain.endAttachment.distance),
+                        x: this.roundValue(chain.endAttachment.x),
+                        y: this.roundValue(chain.endAttachment.y)
+                    } : null,
+                    sticks: chain.sticks.map(stick => ({
+                        id: stick.id,
+                        length: this.roundValue(stick.length),
+                        angle: this.roundValue(stick.angle),
+                        start: this.roundPoint({ x: stick.startX, y: stick.startY }),
+                        end: this.roundPoint({ x: stick.endX, y: stick.endY })
+                    })),
+                    nodes,
+                    anchors
+                };
+            }),
+            manualAnchors: this.system.anchors.map(anchor => ({
+                id: anchor.id,
+                primaryAttachment: anchor.primaryAttachment ? {
+                    ...anchor.primaryAttachment,
+                    distance: this.roundValue(anchor.primaryAttachment.distance)
+                } : null,
+                targetAttachment: anchor.targetAttachment ? {
+                    ...anchor.targetAttachment,
+                    normalizedType: this.system.getAttachmentType(anchor.targetAttachment),
+                    distance: this.roundValue(anchor.targetAttachment.distance),
+                    angleOffset: this.roundValue(anchor.targetAttachment.angleOffset),
+                    x: this.roundValue(anchor.targetAttachment.x),
+                    y: this.roundValue(anchor.targetAttachment.y)
+                } : null,
+                point: this.roundPoint(this.solver.getAnchorPrimaryPosition(anchor))
+            })),
+            pencils: this.system.pencils.map(pencil => ({
+                id: pencil.id,
+                stickChainId: pencil.stickChainId,
+                stickIndex: pencil.stickIndex,
+                positionOnStick: this.roundValue(pencil.positionOnStick),
+                point: this.roundPoint({ x: pencil.x, y: pencil.y })
+            }))
+        };
+
+        console.groupCollapsed('[Debug] System configuration');
+        console.log(dump);
+        console.groupEnd();
+        this.drawingTools.updateStatus('System configuration printed to console.');
+    }
+
+    loadDebugTestConfiguration() {
+        this.drawingTools.updateStatus('Loading debug test setup...');
+        this.resetPlaybackState();
+        this.system.clear();
+
+        const disc1 = this.system.addDisc(0, 0, 80, 30);
+        const disc2 = this.system.addDisc(-400, 100, 80, 60);
+        disc1.angle = 0;
+        disc2.angle = 0;
+        disc1.targetRpm = 30;
+        disc2.targetRpm = 60;
+        disc1.rpm = 30;
+        disc2.rpm = 60;
+
+        const chain1 = this.system.addStickChain();
+        const chain2 = this.system.addStickChain();
+
+        const segment1Start = { x: 60, y: 0 };
+        const segment1End = { x: -300, y: -200 };
+        const segment2Start = { x: -340, y: 100 };
+        const anchorPoint = {
+            x: (segment1Start.x + segment1End.x) / 2,
+            y: (segment1Start.y + segment1End.y) / 2
+        };
+
+        chain1.startAttachment = { type: 'disc', id: disc1.id, distance: 60, angleOffset: 0 };
+        chain2.startAttachment = { type: 'disc', id: disc2.id, distance: 60, angleOffset: 0 };
+
+        const stick1 = new Stick(
+            this.system.nextStickId(),
+            MathUtils.distance(segment1Start.x, segment1Start.y, segment1End.x, segment1End.y)
+        );
+        stick1.setPosition(
+            segment1Start.x,
+            segment1Start.y,
+            MathUtils.angleToPoint(segment1Start.x, segment1Start.y, segment1End.x, segment1End.y)
+        );
+        chain1.addStick(stick1);
+
+        const stick2 = new Stick(
+            this.system.nextStickId(),
+            MathUtils.distance(segment2Start.x, segment2Start.y, anchorPoint.x, anchorPoint.y)
+        );
+        stick2.setPosition(
+            segment2Start.x,
+            segment2Start.y,
+            MathUtils.angleToPoint(segment2Start.x, segment2Start.y, anchorPoint.x, anchorPoint.y)
+        );
+        chain2.addStick(stick2);
+        chain2.endAttachment = { type: 'anchor', id: stick1.id, distance: stick1.length / 2 };
+
+        chain1.endAttachment = { type: 'openEnd' };
+
+        this.drawingTools.cancelPendingConstruction();
+        this.drawingTools.refreshGeometry();
+        this.playbackControls.syncSidebar();
+        this.drawingTools.updateStatus('Debug test setup loaded.');
+        this.printSystemConfiguration();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log(`[App Reload] Now: ${new Date().toISOString()}`);
+    window.app = new App();
+});
