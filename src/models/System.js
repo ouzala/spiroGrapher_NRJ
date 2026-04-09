@@ -93,12 +93,12 @@ class System {
     }
 
     analyzeDiscDrives() {
-        const finiteTorqueDiscs = this.discs.filter(disc => Number.isFinite(disc.torque));
+        const finiteTorqueDiscs = this.discs.filter(disc => !disc.isHardDriven());
         const warnings = [];
 
         if (finiteTorqueDiscs.length > 0) {
             const labels = finiteTorqueDiscs.map(disc => `Disc ${disc.id}`).join(', ');
-            warnings.push(`${labels} use finite torque and are solved as soft disc attachments. Disc rotation is still prescribed by RPM; full torque-driven disc dynamics are not implemented yet.`);
+            warnings.push(`${labels} use hybrid torque modulation. Their actual RPM can deviate from rest RPM to satisfy exact mechanism constraints.`);
         }
 
         return {

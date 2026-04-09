@@ -371,6 +371,8 @@ class DrawingTools {
                 disc.setRpm(rpm);
                 disc.setTorque(torque);
                 if (!this.app.isPlaying) {
+                    disc.restRpm = rpm;
+                    disc.rampStartRpm = rpm;
                     disc.rpm = rpm;
                 }
             }
@@ -411,7 +413,7 @@ class DrawingTools {
             return Infinity;
         }
 
-        return parsed;
+        return MathUtils.clamp(parsed, 0, 100);
     }
 
     handleStickToolClick(world, canvasX, canvasY, hit) {
@@ -453,7 +455,7 @@ class DrawingTools {
         const hit = this.app.renderer.findStickAtCanvas(canvasX, canvasY, this.app.system, 10, { skipStickIds: excludeStickIds });
         if (hit) {
             const stick = this.app.system.getStickById(hit.id);
-            const distance = stick ? hit.t * stick.length : 0;
+            const distance = stick ? hit.t * stick.restLength : 0;
             return {
                 attachment: { type: 'anchor', id: hit.id, distance },
                 end: hit.point,
@@ -601,7 +603,7 @@ class DrawingTools {
         const pencil = this.app.system.addPencil(
             hit.chainId,
             hit.stickIndex,
-            hit.t * stick.length,
+            hit.t * stick.restLength,
             '#00ff00',
             3
         );
@@ -660,7 +662,7 @@ class DrawingTools {
                         id: stick.id,
                         chainId: chain.id,
                         stickIndex: i,
-                        distance: projection.t * stick.length,
+                        distance: projection.t * stick.restLength,
                         point: this.app.renderer.canvasToWorld(projection.x, projection.y)
                     });
                 }
@@ -743,7 +745,7 @@ class DrawingTools {
 
         pencil.stickChainId = hit.chainId;
         pencil.stickIndex = hit.stickIndex;
-        pencil.positionOnStick = hit.t * stick.length;
+        pencil.positionOnStick = hit.t * stick.restLength;
         this.refreshGeometry();
     }
 

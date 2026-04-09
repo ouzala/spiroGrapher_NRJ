@@ -2,7 +2,11 @@
 
 This document summarizes the energy-based solver branch centered on [src/engine/EnergySolver.js]. It describes how the mechanism is represented, which parts of the system are treated as hard versus soft constraints, and how each animation step resolves the mechanism configuration.
 
-## 1. Purpose
+### ENERGY REFORMULATION OF THE SPYROGRAPHER KINEMATIC MODEL
+--> Segments get a spring stiffness component
+--> Anchors and fixed points are part of the energy formulation (soft constraint) but with high weights => "practicaly fix"
+
+## 0. Purpose
 
 The energy model replaces the former angle-based kinematic closure logic in KinematicSolver.js with a position-based least-squares solve.
 
@@ -25,7 +29,136 @@ where:
 
 This is not a full rigid-body dynamics model. It is a quasi-static equilibrium solve performed at every playback step after disc angles are advanced.
 
-## 2. High-Level Architecture
+
+## 1. Overview
+
+The system is modeled as a set of points $( X_{i,k}(t) \in \mathbb{R}^2 )$ connected by elastic elements (springs) and subject to attachment constraints.
+
+Instead of enforcing hard geometric constraints, the configuration at time ( t ) is obtained by minimizing a total energy:
+
+$$
+E_{\text{total}}(x,t)
+$$
+
+where $( x )$ is the vector of all unknown node positions.
+
+---
+
+### 1.1. Variables
+
+* Nodes:
+  $$
+  X_{i,k}(t) \in \mathbb{R}^2
+  $$
+
+* Disc-driven attachment points:
+  $$
+  A_i(t) = c_i + r_i
+  \begin{pmatrix}
+  \cos(\theta_i(t)) \
+  \sin(\theta_i(t))
+  \end{pmatrix}
+  $$
+
+---
+
+### 1.3. Segment (Spring) Energy
+
+Each segment behaves like a linear spring with:
+
+* rest length ( s_{i,k} )
+* stiffness ( k_{i,k} > 0 )
+
+Energy contribution:
+
+$$
+E_{i,k} = \frac{1}{2} k_{i,k} \left( |X_{i,k} - X_{i,k-1}| - s_{i,k} \right)^2
+$$
+
+---
+
+### 1.4. Anchor Energy
+
+An anchor connects a node ( X_{i,n_i} ) to a point on another segment.
+
+Let:
+$$
+H(t) = X_{j,\ell-1}(t) + \lambda \left( X_{j,\ell}(t) - X_{j,\ell-1}(t) \right), \quad \lambda \in [0,1]
+$$
+
+Anchor energy:
+
+$$
+E_{\text{anchor}} = \frac{1}{2} k_a , |X_{i,n_i} - H(t)|^2
+$$
+
+where $( k_a )$ is the anchor stiffness.
+
+---
+
+### 1.5. Disc Attachment Energy (Optional)
+
+If disc attachment is treated as a soft constraint:
+
+$$
+E_{\text{disc}} = \frac{1}{2} k_d , |X_{i,0} - A_i(t)|^2
+$$
+
+Otherwise, enforce:
+$$
+X_{i,0}(t) = A_i(t)
+$$
+as a hard constraint.
+
+---
+
+### 1.6. Total Energy
+
+$$
+E_{\text{total}}(x,t) =
+\sum_{i,k} E_{i,k}
++
+\sum_{\text{anchors}} E_{\text{anchor}}
++
+\sum_i E_{\text{disc}}
+$$
+
+---
+
+### 1.7. System Solution
+
+At each time $( t )$, the configuration is obtained by solving:
+
+$$
+x^*(t) = \arg\min_x E_{\text{total}}(x,t)
+$$
+
+---
+
+### 1.8. Dynamic Extension (Optional)
+
+If masses ( m ) are introduced, the system evolves according to:
+
+$$
+m \ddot{x}(t) = - \nabla E_{\text{total}}(x,t)
+$$
+
+With damping:
+
+$$
+m \ddot{x}(t) + c \dot{x}(t) + \nabla E_{\text{total}}(x,t) = 0
+$$
+
+---
+
+### 1.9. Notes
+
+* As $( k_{i,k} \to \infty )$, segments behave as rigid constraints.
+* Large $( k_a )$ enforces strong anchoring.
+* The formulation guarantees existence of a solution (minimum energy), but not necessarily uniqueness.
+* Numerical optimization methods (e.g. L-BFGS, Gauss-Newton) are typically used.
+
+##2. High-Level Architecture
 
 The model is distributed across a few core files:
 
@@ -149,7 +282,7 @@ $$
 where:
 
 - `X_a`, `X_b` are the endpoint nodes,
-- `L` is the stick rest length (`stick.length`),
+- `L` is the stick rest length (`stick.restLength`),
 - `k_eff` is the effective segment stiffness.
 
 `k_eff` comes from `getEffectiveStickStiffness()`:
@@ -246,8 +379,7 @@ $$
 J \\
 \sqrt{\lambda} I
 \end{bmatrix}
-\Delta x
-=
+\Delta x =
 \begin{bmatrix}
 -r \\
 0
@@ -385,7 +517,7 @@ If stiffness values are too low, closed loops may visibly stretch or detach beca
 
 The Jacobian is finite-differenced, so solve cost increases with the number of variable coordinates.
 
-## 14. Mental Model for Contributors
+# 14. Mental Model for Contributors
 
 When working on this branch, it helps to think of the system like this:
 
@@ -401,7 +533,7 @@ In short:
 - rigidity is approximated through high stiffness,
 - and each frame is solved as a nonlinear least-squares equilibrium problem.
 
-## 15. Suggested Future Extensions
+# 15. Suggested Future Extensions
 
 Natural next steps for this branch would be:
 
@@ -411,4 +543,3 @@ Natural next steps for this branch would be:
 - add node masses and time integration for real dynamics,
 - expose topology and residual breakdown in debug tooling,
 - report per-term energy contributions for tuning and diagnosis.
-

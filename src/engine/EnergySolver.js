@@ -209,7 +209,7 @@ class EnergySolver {
         const previous = this.getFallbackNodePosition(chainId, nodeIndex - 1);
         const stick = chain.getStick(nodeIndex - 1);
         const angle = stick?.angle || 0;
-        const length = stick?.actualLength || stick?.length || 0;
+        const length = stick?.actualLength || stick?.restLength || 0;
         return {
             x: previous.x + length * Math.cos(angle),
             y: previous.y + length * Math.sin(angle)
@@ -249,7 +249,7 @@ class EnergySolver {
             const distance = Math.hypot(dx, dy);
             const effectiveStiffness = this.getEffectiveStickStiffness(segment.stick);
             const weight = Math.sqrt(effectiveStiffness);
-            residuals.push(weight * (distance - segment.stick.length));
+            residuals.push(weight * (distance - segment.stick.restLength));
         }
 
         for (const attachment of topology.softDiscAttachments) {
@@ -463,7 +463,7 @@ class EnergySolver {
             const stick = chain.getStick(pencil.stickIndex);
             if (!stick) continue;
 
-            const clamped = MathUtils.clamp(pencil.positionOnStick, 0, stick.length);
+            const clamped = MathUtils.clamp(pencil.positionOnStick, 0, stick.restLength);
             pencil.positionOnStick = clamped;
             const pos = stick.getPointAtDistance(clamped);
             pencil.x = pos.x;

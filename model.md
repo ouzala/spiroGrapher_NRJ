@@ -46,7 +46,7 @@ The stick geometry is:
 
 Important rule:
 
-- stick length is immutable unless the user explicitly edits it
+- stick rest length is immutable unless the user explicitly edits it
 
 ### Stick Chain
 
@@ -240,7 +240,7 @@ Current implementation direction:
 The refactor should proceed in this order:
 
 1. make endpoint semantics explicit: `openEnd`, `anchor`, `fixedPoint`
-2. ensure stick lengths remain immutable
+2. ensure stick rest lengths remain immutable
 3. block playback for underconstrained systems
 4. rebuild residual assembly to ignore open ends
 5. replace the current square-only linear solve with proper least-squares numerics

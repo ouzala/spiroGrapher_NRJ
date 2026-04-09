@@ -6,7 +6,7 @@ class App {
         this.canvas = document.getElementById('canvas');
         this.system = new System();
         this.renderer = new CanvasRenderer(this.canvas);
-        this.solverMode = 'energy';
+        this.solverMode = 'hybrid';
         this.solver = this.createSolver(this.solverMode);
         this.drawingTools = new DrawingTools(this);
         this.playbackControls = new PlaybackControls(this);
@@ -38,32 +38,44 @@ class App {
     }
 
     createSolver(mode) {
-        return mode === 'kinematic'
-            ? new KinematicSolver(this.system)
-            : new EnergySolver(this.system);
+        if (mode === 'kinematic') {
+            return new KinematicSolver(this.system);
+        }
+        if (mode === 'energy') {
+            return new EnergySolver(this.system);
+        }
+        return new HybridSolver(this.system);
     }
 
     getSolverDisplayName(mode = this.solverMode) {
-        return mode === 'kinematic' ? 'Kinematic' : 'Energy';
+        if (mode === 'kinematic') return 'Kinematic';
+        if (mode === 'energy') return 'Energy';
+        return 'Hybrid';
+    }
+
+    getSolverModes() {
+        return ['hybrid', 'energy', 'kinematic'];
     }
 
     syncSolverToggleButton() {
         const button = document.getElementById('btn-toggle-solver');
         if (!button) return;
 
+        const modes = this.getSolverModes();
         const currentName = this.getSolverDisplayName();
-        const nextMode = this.solverMode === 'energy' ? 'kinematic' : 'energy';
+        const nextMode = modes[(modes.indexOf(this.solverMode) + 1) % modes.length];
         const nextName = this.getSolverDisplayName(nextMode);
         button.innerHTML = `<strong>Solver: ${currentName}</strong><span>Click to switch to ${nextName}Solver</span>`;
     }
 
     toggleSolverMode() {
-        const nextMode = this.solverMode === 'energy' ? 'kinematic' : 'energy';
+        const modes = this.getSolverModes();
+        const nextMode = modes[(modes.indexOf(this.solverMode) + 1) % modes.length];
         this.setSolverMode(nextMode);
     }
 
     setSolverMode(mode) {
-        if (mode !== 'energy' && mode !== 'kinematic') return;
+        if (!this.getSolverModes().includes(mode)) return;
 
         this.pauseForEditing();
         this.solverMode = mode;
@@ -168,6 +180,16 @@ class App {
     }
 
     advanceDiscAngles(dtMs, useDiscUpdate = false) {
+        if (this.solverMode === 'hybrid') {
+            for (const disc of this.system.discs) {
+                disc.updateDriveTarget(dtMs, this.timeScale);
+                if (disc.isHardDriven()) {
+                    disc.angle = ((disc.angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+                }
+            }
+            return;
+        }
+
         for (const disc of this.system.discs) {
             if (useDiscUpdate && dtMs > 0) {
                 disc.update(dtMs, this.timeScale);
@@ -240,6 +262,9 @@ class App {
         if (this.solver.lastSolvedAngles) {
             this.solver.lastSolvedAngles.clear();
         }
+        if (this.solver.lastSolvedDiscAngles) {
+            this.solver.lastSolvedDiscAngles.clear();
+        }
         document.getElementById('time-display').textContent = '0.00s';
     }
 
@@ -277,6 +302,7 @@ class App {
                 center: this.roundPoint({ x: disc.x, y: disc.y }),
                 radius: this.roundValue(disc.radius),
                 rpm: this.roundValue(disc.rpm),
+                restRpm: this.roundValue(disc.restRpm),
                 targetRpm: this.roundValue(disc.targetRpm),
                 torque: Number.isFinite(disc.torque) ? this.roundValue(disc.torque) : 'infinite',
                 driveMode: disc.getDriveMode(),
@@ -328,7 +354,7 @@ class App {
                     } : null,
                     sticks: chain.sticks.map(stick => ({
                         id: stick.id,
-                        length: this.roundValue(stick.length),
+                        restLength: this.roundValue(stick.restLength),
                         actualLength: this.roundValue(stick.actualLength),
                         stiffness: this.roundValue(stick.stiffness),
                         angle: this.roundValue(stick.angle),
@@ -379,8 +405,12 @@ class App {
         const disc2 = this.system.addDisc(-400, 100, 80, 60);
         disc1.angle = 0;
         disc2.angle = 0;
+        disc1.driveTargetAngle = 0;
+        disc2.driveTargetAngle = 0;
         disc1.targetRpm = 30;
         disc2.targetRpm = 60;
+        disc1.restRpm = 30;
+        disc2.restRpm = 60;
         disc1.rpm = 30;
         disc2.rpm = 60;
 
@@ -419,7 +449,7 @@ class App {
             MathUtils.angleToPoint(segment2Start.x, segment2Start.y, anchorPoint.x, anchorPoint.y)
         );
         chain2.addStick(stick2);
-        chain2.endAttachment = { type: 'anchor', id: stick1.id, distance: stick1.length / 2 };
+        chain2.endAttachment = { type: 'anchor', id: stick1.id, distance: stick1.restLength / 2 };
 
         chain1.endAttachment = { type: 'openEnd' };
 

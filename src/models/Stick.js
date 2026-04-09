@@ -2,9 +2,9 @@
  * Stick: A rigid stick with two revolute joints
  */
 class Stick {
-    constructor(id, length, stiffness = 999) {
+    constructor(id, restLength, stiffness = 999) {
         this.id = id;                    // unique identifier
-        this.length = length;            // rest length of stick (mm)
+        this.restLength = restLength;    // zero-energy / nominal stick length (mm)
         this.stiffness = stiffness;      // spring stiffness (high values approximate rigid segments)
         this.angle = 0;                  // current angle (radians)
         this.targetAngle = 0;            // target angle (for solver convergence)
@@ -12,7 +12,7 @@ class Stick {
         this.startY = 0;                 // start point y (mm)
         this.endX = 0;                   // end point x (mm)
         this.endY = 0;                   // end point y (mm)
-        this.actualLength = length;      // rendered length after solving
+        this.actualLength = restLength;  // rendered length after solving
     }
 
     /**
@@ -25,9 +25,9 @@ class Stick {
         this.startX = startX;
         this.startY = startY;
         this.angle = angle;
-        this.endX = startX + this.length * Math.cos(angle);
-        this.endY = startY + this.length * Math.sin(angle);
-        this.actualLength = this.length;
+        this.endX = startX + this.restLength * Math.cos(angle);
+        this.endY = startY + this.restLength * Math.sin(angle);
+        this.actualLength = this.restLength;
     }
 
     /**
@@ -52,7 +52,7 @@ class Stick {
      * @returns {{x: number, y: number}}
      */
     getPointAtDistance(distance) {
-        const t = this.length > 0 ? MathUtils.clamp(distance / this.length, 0, 1) : 0;
+        const t = this.restLength > 0 ? MathUtils.clamp(distance / this.restLength, 0, 1) : 0;
         return {
             x: MathUtils.lerp(this.startX, this.endX, t),
             y: MathUtils.lerp(this.startY, this.endY, t)
@@ -68,7 +68,7 @@ class Stick {
     }
 
     clone() {
-        const s = new Stick(this.id, this.length, this.stiffness);
+        const s = new Stick(this.id, this.restLength, this.stiffness);
         s.angle = this.angle;
         s.targetAngle = this.targetAngle;
         s.setEndpoints(this.startX, this.startY, this.endX, this.endY);

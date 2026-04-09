@@ -7,22 +7,38 @@ class Disc {
         this.x = x;                      // center x position (mm)
         this.y = y;                      // center y position (mm)
         this.radius = radius;            // radius (mm)
-        this.rpm = rpm;                  // rotation speed (revolutions per minute)
-        this.torque = torque;            // drive torque (Infinity keeps the disc hard-driven)
+        this.restRpm = rpm;              // preferred drive speed used by the solver
+        this.rpm = rpm;                  // actual speed after solving / playback
+        this.torque = torque;            // drive authority: 0..100 finite, Infinity/100 => hard-driven
         this.angle = 0;                  // current angle (radians, 0 at construction)
-        this.targetRpm = rpm;            // target rpm for smooth ramp-up
+        this.targetRpm = rpm;            // target preferred rpm for smooth ramp-up
+        this.rampStartRpm = rpm;         // preferred rpm at the start of a ramp
         this.rampStartTime = null;       // when ramp started
         this.rampDuration = 2000;        // 2 second ramp-up (ms)
+        this.driveTargetAngle = 0;       // preferred angle after the current timestep
+        this.lastDriveDtMs = 0;          // effective timestep used for the latest drive target
         console.log(`[Disc] Created id=${id} at world (${x}, ${y}), radius=${radius}mm`);
     }
 
     /**
-     * Update disc angle based on elapsed time
+     * Update disc state for solvers that prescribe angle directly.
      * @param {number} dt - delta time (ms)
      * @param {number} timeScale - playback speed multiplier
      */
     update(dt, timeScale = 1) {
-        // Interpolate rpm towards target over ramp duration
+        this.updateDriveTarget(dt, timeScale);
+        this.angle = this.driveTargetAngle;
+        this.rpm = this.restRpm;
+        this.angle = ((this.angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+    }
+
+    /**
+     * Update the preferred drive target for the next timestep.
+     * @param {number} dt - delta time (ms)
+     * @param {number} timeScale - playback speed multiplier
+     */
+    updateDriveTarget(dt, timeScale = 1) {
+        this.lastDriveDtMs = dt * timeScale;
         const now = performance.now();
         if (this.rampStartTime === null) {
             this.rampStartTime = now;
@@ -31,18 +47,18 @@ class Disc {
         const elapsed = now - this.rampStartTime;
         if (elapsed < this.rampDuration) {
             const t = elapsed / this.rampDuration;
-            this.rpm = this.rpm + (this.targetRpm - this.rpm) * t;
+            this.restRpm = MathUtils.lerp(this.rampStartRpm, this.targetRpm, t);
         } else {
-            this.rpm = this.targetRpm;
+            this.restRpm = this.targetRpm;
         }
 
-        // Increment angle
-        // rpm -> revolutions per second: rpm / 60
-        // revolutions per second -> radians per second: (rpm/60) * 2π
-        // radians per dt: (rpm/60) * 2π * (dt/1000)
-        const radsPerMs = (this.rpm / 60) * 2 * Math.PI / 1000;
-        this.angle += radsPerMs * dt * timeScale;
-        this.angle = this.angle % (2 * Math.PI);  // keep in [0, 2π)
+        const radsPerMs = (this.restRpm / 60) * 2 * Math.PI / 1000;
+        this.driveTargetAngle = this.angle + radsPerMs * dt * timeScale;
+
+        if (this.isHardDriven()) {
+            this.angle = this.driveTargetAngle;
+            this.rpm = this.restRpm;
+        }
     }
 
     /**
@@ -50,6 +66,7 @@ class Disc {
      * @param {number} newRpm - new target RPM
      */
     setRpm(newRpm) {
+        this.rampStartRpm = this.restRpm;
         this.targetRpm = newRpm;
         this.rampStartTime = performance.now();
     }
@@ -58,12 +75,23 @@ class Disc {
         this.torque = newTorque;
     }
 
+    getTorqueRatio() {
+        if (!Number.isFinite(this.torque)) return 1;
+        return MathUtils.clamp(this.torque / 100, 0, 1);
+    }
+
     isHardDriven() {
-        return !Number.isFinite(this.torque);
+        return !Number.isFinite(this.torque) || this.torque >= 100;
+    }
+
+    isFreewheel() {
+        return Number.isFinite(this.torque) && this.torque <= 0;
     }
 
     getDriveMode() {
-        return this.isHardDriven() ? 'hardDrive' : 'softAttachment';
+        if (this.isHardDriven()) return 'hardDrive';
+        if (this.isFreewheel()) return 'freewheel';
+        return 'torqueModulated';
     }
 
     getLegacyDriveBehavior() {
@@ -94,9 +122,15 @@ class Disc {
     }
 
     clone() {
-        const d = new Disc(this.id, this.x, this.y, this.radius, this.rpm, this.torque);
+        const d = new Disc(this.id, this.x, this.y, this.radius, this.restRpm, this.torque);
         d.angle = this.angle;
+        d.restRpm = this.restRpm;
+        d.rpm = this.rpm;
         d.targetRpm = this.targetRpm;
+        d.rampStartRpm = this.rampStartRpm;
+        d.rampStartTime = this.rampStartTime;
+        d.driveTargetAngle = this.driveTargetAngle;
+        d.lastDriveDtMs = this.lastDriveDtMs;
         return d;
     }
 }

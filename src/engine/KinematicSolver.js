@@ -310,7 +310,7 @@ class KinematicSolver {
             const stick = chain.getStick(pencil.stickIndex);
             if (!stick) continue;
 
-            const clamped = MathUtils.clamp(pencil.positionOnStick, 0, stick.length);
+            const clamped = MathUtils.clamp(pencil.positionOnStick, 0, stick.restLength);
             pencil.positionOnStick = clamped;
             const pos = stick.getPointAtDistance(clamped);
             pencil.x = pos.x;

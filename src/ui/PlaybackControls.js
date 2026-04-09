@@ -98,6 +98,10 @@ class PlaybackControls {
 
         for (const disc of this.app.system.discs) {
             disc.angle = 0;
+            disc.driveTargetAngle = 0;
+            disc.restRpm = disc.targetRpm;
+            disc.rampStartRpm = disc.targetRpm;
+            disc.rpm = disc.targetRpm;
         }
         for (const pencil of this.app.system.pencils) {
             pencil.clearTraces();
@@ -179,7 +183,7 @@ class PlaybackControls {
                     <span>Disc ${disc.id}</span>
                     <span id="disc-rpm-value-${disc.id}">${disc.targetRpm.toFixed(0)} rpm</span>
                 </div>
-                <div class="disc-rpm-empty" id="disc-drive-note-${disc.id}">${disc.isHardDriven() ? 'Hard drive: prescribed angle' : 'Finite torque: soft disc attachment'}</div>
+                <div class="disc-rpm-empty" id="disc-drive-note-${disc.id}">${this.getDiscDriveNote(disc)}</div>
                 <input
                     type="range"
                     min="-300"
@@ -216,9 +220,7 @@ class PlaybackControls {
                 slider.value = desiredValue;
             }
             label.textContent = `${disc.targetRpm.toFixed(0)} rpm`;
-            note.textContent = disc.isHardDriven()
-                ? 'Hard drive: prescribed angle'
-                : 'Finite torque: soft disc attachment';
+            note.textContent = this.getDiscDriveNote(disc);
         }
     }
 
@@ -233,6 +235,8 @@ class PlaybackControls {
         const rpm = parseFloat(slider.value);
         disc.setRpm(rpm);
         if (!this.app.isPlaying) {
+            disc.restRpm = rpm;
+            disc.rampStartRpm = rpm;
             disc.rpm = rpm;
         }
         const label = document.getElementById(`disc-rpm-value-${disc.id}`);
@@ -245,5 +249,15 @@ class PlaybackControls {
         this.syncPlaybackButtons();
         this.syncDiscRpmControls();
         this.syncVisibilityButton();
+    }
+
+    getDiscDriveNote(disc) {
+        if (disc.isHardDriven()) {
+            return 'Hard drive: exact rest RPM';
+        }
+        if (disc.isFreewheel()) {
+            return 'Freewheel: geometry-led angle';
+        }
+        return `Torque-limited: hybrid RPM modulation (${disc.torque.toFixed(0)}%)`;
     }
 }
