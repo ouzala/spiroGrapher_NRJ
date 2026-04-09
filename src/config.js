@@ -3,14 +3,50 @@ const SHARED_SOLVER_PARAMETERS = {
     JACOBIAN_EPSILON: 1e-4
 };
 
+const SYSTEM_DEFAULTS = {
+    DISC_TORQUE: 100,
+    STICK_STIFFNESS: 100
+};
+
 const POSITION_SOLVER_PARAMETERS = {
     MAX_COORDINATE_STEP: 40,
-    STICK_RIGID_STIFFNESS_CUTOFF: 999,
+    STICK_RIGID_STIFFNESS_PERCENT: 100,
     STICK_RIGID_STIFFNESS: 1e6,
+    STICK_MAX_COMPLIANT_STIFFNESS: 1e4,
     STICK_MIN_STIFFNESS: 1e-6
 };
 
+function clampStickStiffnessPercent(value) {
+    return MathUtils.clamp(Number.isFinite(value) ? value : 0, 0, 100);
+}
+
+function transformStickStiffnessPercent(percent) {
+    const normalized = clampStickStiffnessPercent(percent) / 100;
+    return normalized;
+}
+
+function getEffectiveStickStiffnessFromPercent(percent, parameters) {
+    const clampedPercent = clampStickStiffnessPercent(percent);
+    if (clampedPercent >= parameters.STICK_RIGID_STIFFNESS_PERCENT) {
+        return parameters.STICK_RIGID_STIFFNESS;
+    }
+
+    const transformed = MathUtils.clamp(transformStickStiffnessPercent(clampedPercent), 0, 1);
+    if (transformed <= 0) {
+        return parameters.STICK_MIN_STIFFNESS;
+    }
+
+    const minStiffness = parameters.STICK_MIN_STIFFNESS;
+    const maxCompliantStiffness = parameters.STICK_MAX_COMPLIANT_STIFFNESS;
+    return minStiffness * Math.pow(maxCompliantStiffness / minStiffness, transformed);
+}
+
 window.AppConfig = {
+    SYSTEM_DEFAULTS,
+    clampStickStiffnessPercent,
+    transformStickStiffnessPercent,
+    getEffectiveStickStiffnessFromPercent,
+
     GENERAL_SIMULATION: {
         FIXED_STEP_MS: 1000 / 60,
         ...SHARED_SOLVER_PARAMETERS

@@ -23,9 +23,6 @@ class HybridSolver {
         this.meritConstraintWeight = AppConfig.HYBRID_SOLVER.MERIT_CONSTRAINT_WEIGHT;
         this.driveWeight = AppConfig.HYBRID_SOLVER.DRIVE_WEIGHT;
         this.freewheelRegularization = AppConfig.HYBRID_SOLVER.FREEWHEEL_REGULARIZATION;
-        this.segmentStiffnessCutoff = AppConfig.HYBRID_SOLVER.STICK_RIGID_STIFFNESS_CUTOFF;
-        this.rigidStickStiffness = AppConfig.HYBRID_SOLVER.STICK_RIGID_STIFFNESS;
-        this.stickMinStiffness = AppConfig.HYBRID_SOLVER.STICK_MIN_STIFFNESS;
         this.lastSolvedNodePositions = new Map();
         this.lastSolvedDiscAngles = new Map();
     }
@@ -301,14 +298,19 @@ class HybridSolver {
 
         for (const entry of topology.softDiscs) {
             const disc = entry.disc;
-            if (disc.isFreewheel()) {
-                const weight = Math.sqrt(this.freewheelRegularization);
+            const torqueRatio = disc.getTorqueRatio();
+            const freewheelBlend = 1 - torqueRatio;
+            const driveBlend = torqueRatio;
+
+            if (freewheelBlend > 0) {
+                const weight = Math.sqrt(this.freewheelRegularization * freewheelBlend);
                 residuals.push(weight * MathUtils.normalizeAngle(disc.angle - entry.initialAngle));
-                continue;
             }
 
-            const weight = Math.sqrt(this.driveWeight * Math.max(1e-6, disc.getTorqueRatio()));
-            residuals.push(weight * MathUtils.normalizeAngle(disc.angle - entry.targetAngle));
+            if (driveBlend > 0) {
+                const weight = Math.sqrt(this.driveWeight * driveBlend);
+                residuals.push(weight * MathUtils.normalizeAngle(disc.angle - entry.targetAngle));
+            }
         }
 
         return residuals;
@@ -574,14 +576,13 @@ class HybridSolver {
     }
 
     isRigidStick(stick) {
-        return Number.isFinite(stick.stiffness) && stick.stiffness >= this.segmentStiffnessCutoff;
+        const stiffnessPercent = Number.isFinite(stick.stiffness) ? stick.stiffness : 0;
+        return AppConfig.clampStickStiffnessPercent(stiffnessPercent) >= AppConfig.HYBRID_SOLVER.STICK_RIGID_STIFFNESS_PERCENT;
     }
 
     getEffectiveStickStiffness(stick) {
-        const stiffness = Number.isFinite(stick.stiffness) ? stick.stiffness : 0;
-        return stiffness >= this.segmentStiffnessCutoff
-            ? this.rigidStickStiffness
-            : Math.max(this.stickMinStiffness, stiffness);
+        const stiffnessPercent = Number.isFinite(stick.stiffness) ? stick.stiffness : 0;
+        return AppConfig.getEffectiveStickStiffnessFromPercent(stiffnessPercent, AppConfig.HYBRID_SOLVER);
     }
 
     getAttachmentPosition(attachment) {

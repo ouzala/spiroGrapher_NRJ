@@ -2,14 +2,14 @@
  * Disc: A rotating disc that drives the kinematic system
  */
 class Disc {
-    constructor(id, x, y, radius, rpm, torque = Infinity) {
+    constructor(id, x, y, radius, rpm, torque = AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE) {
         this.id = id;                    // unique identifier
         this.x = x;                      // center x position (mm)
         this.y = y;                      // center y position (mm)
         this.radius = radius;            // radius (mm)
         this.restRpm = rpm;              // preferred drive speed used by the solver
         this.rpm = rpm;                  // actual speed after solving / playback
-        this.torque = torque;            // drive authority: 0..100 finite, Infinity/100 => hard-driven
+        this.torque = torque;            // drive authority: 0..100%, Infinity/100 => hard-driven
         this.angle = 0;                  // current angle (radians, 0 at construction)
         this.targetRpm = rpm;            // target preferred rpm for smooth ramp-up
         this.rampStartRpm = rpm;         // preferred rpm at the start of a ramp
@@ -75,9 +75,13 @@ class Disc {
         this.torque = newTorque;
     }
 
+    getTorquePercent() {
+        if (!Number.isFinite(this.torque)) return 100;
+        return MathUtils.clamp(this.torque, 0, 100);
+    }
+
     getTorqueRatio() {
-        if (!Number.isFinite(this.torque)) return 1;
-        return MathUtils.clamp(this.torque / 100, 0, 1);
+        return this.getTorquePercent() / 100;
     }
 
     isHardDriven() {

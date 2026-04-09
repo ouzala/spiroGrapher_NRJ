@@ -15,7 +15,7 @@ class System {
         this.simTime = 0;
     }
 
-    addDisc(x, y, radius, rpm, torque = Infinity) {
+    addDisc(x, y, radius, rpm, torque = AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE) {
         const disc = new Disc(this.nextDiscId++, x, y, radius, rpm, torque);
         this.discs.push(disc);
         return disc;

@@ -334,7 +334,7 @@ class DrawingTools {
         document.getElementById('modal-disc-title').textContent = 'Set Disc RPM';
         document.getElementById('input-disc-radius').value = this.pendingDiscRadius.toFixed(1);
         document.getElementById('input-disc-rpm').value = 60;
-        document.getElementById('input-disc-torque').value = 'infinite';
+        document.getElementById('input-disc-torque').value = this.formatTorqueValue(AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE);
         document.getElementById('btn-delete-disc').style.display = 'none';
         this.openModal('modal-disc');
     }
@@ -349,7 +349,7 @@ class DrawingTools {
         document.getElementById('modal-disc-title').textContent = `Edit Disc ${disc.id}`;
         document.getElementById('input-disc-radius').value = disc.radius;
         document.getElementById('input-disc-rpm').value = disc.targetRpm;
-        document.getElementById('input-disc-torque').value = Number.isFinite(disc.torque) ? disc.torque : 'infinite';
+        document.getElementById('input-disc-torque').value = this.formatTorqueValue(disc.torque);
         document.getElementById('btn-delete-disc').style.display = 'inline-flex';
         this.openModal('modal-disc');
     }
@@ -405,15 +405,19 @@ class DrawingTools {
     parseTorqueInput(rawValue) {
         const value = String(rawValue ?? '').trim().toLowerCase();
         if (!value || value === 'inf' || value === 'infinite' || value === 'infinity') {
-            return Infinity;
+            return AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE;
         }
 
         const parsed = parseFloat(value);
         if (!Number.isFinite(parsed) || parsed < 0) {
-            return Infinity;
+            return AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE;
         }
 
         return MathUtils.clamp(parsed, 0, 100);
+    }
+
+    formatTorqueValue(torque) {
+        return Number.isFinite(torque) ? torque : 'infinite';
     }
 
     handleStickToolClick(world, canvasX, canvasY, hit) {
@@ -517,7 +521,7 @@ class DrawingTools {
         const endPos = this.pendingStick.previewEnd;
         const length = Math.max(1, MathUtils.distance(startPos.x, startPos.y, endPos.x, endPos.y));
         const angle = MathUtils.angleToPoint(startPos.x, startPos.y, endPos.x, endPos.y);
-        const stick = new Stick(this.app.system.nextStickId(), length, 999);
+        const stick = new Stick(this.app.system.nextStickId(), length, AppConfig.SYSTEM_DEFAULTS.STICK_STIFFNESS);
         stick.setPosition(startPos.x, startPos.y, angle);
         chain.addStick(stick);
         chain.endAttachment = { ...this.pendingStick.previewAttachment };
@@ -534,11 +538,13 @@ class DrawingTools {
         const stick = chain?.getStick(stickIndex) || null;
         const isLast = chain ? stickIndex === chain.sticks.length - 1 : false;
         document.getElementById('stick-menu-title').textContent = `Stick ${stickIndex + 1} Actions`;
-        document.getElementById('input-stick-stiffness').value = stick ? stick.stiffness : 999;
+        document.getElementById('input-stick-stiffness').value = stick
+            ? AppConfig.clampStickStiffnessPercent(stick.stiffness)
+            : AppConfig.SYSTEM_DEFAULTS.STICK_STIFFNESS;
         document.getElementById('btn-add-next-stick').disabled = !isLast;
         document.getElementById('stick-menu-note').textContent = isLast
-            ? 'You can update this segment stiffness, delete the stick, or append another stick to the chain.'
-            : 'You can update this segment stiffness or delete the stick. Only the last stick in a chain can receive a new next stick.';
+            ? 'You can update this segment stiffness percentage, delete the stick, or append another stick to the chain.'
+            : 'You can update this segment stiffness percentage or delete the stick. Only the last stick in a chain can receive a new next stick.';
         this.openModal('modal-stick');
     }
 
@@ -576,7 +582,9 @@ class DrawingTools {
         const stick = chain?.getStick(stickIndex) || null;
         if (!stick) return;
 
-        stick.stiffness = Math.max(0, parseFloat(document.getElementById('input-stick-stiffness').value) || 0);
+        stick.stiffness = AppConfig.clampStickStiffnessPercent(
+            parseFloat(document.getElementById('input-stick-stiffness').value) || 0
+        );
         this.closeStickMenu();
         this.refreshGeometry();
         this.updateStatus(`Stick ${stickIndex + 1} updated.`);

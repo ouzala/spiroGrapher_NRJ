@@ -15,9 +15,6 @@ class EnergySolver {
         this.maxCoordinateStep = AppConfig.ENERGY_SOLVER.MAX_COORDINATE_STEP;
         this.anchorStiffness = AppConfig.ENERGY_SOLVER.ANCHOR_STIFFNESS;
         this.fixedPointStiffness = AppConfig.ENERGY_SOLVER.FIXED_POINT_STIFFNESS;
-        this.segmentStiffnessCutoff = AppConfig.ENERGY_SOLVER.STICK_RIGID_STIFFNESS_CUTOFF;
-        this.rigidStickStiffness = AppConfig.ENERGY_SOLVER.STICK_RIGID_STIFFNESS;
-        this.stickMinStiffness = AppConfig.ENERGY_SOLVER.STICK_MIN_STIFFNESS;
         this.lastSolvedNodePositions = new Map();
     }
 
@@ -234,10 +231,8 @@ class EnergySolver {
     }
 
     getEffectiveStickStiffness(stick) {
-        const stiffness = Number.isFinite(stick.stiffness) ? stick.stiffness : 0;
-        return stiffness >= this.segmentStiffnessCutoff
-            ? this.rigidStickStiffness
-            : Math.max(this.stickMinStiffness, stiffness);
+        const stiffnessPercent = Number.isFinite(stick.stiffness) ? stick.stiffness : 0;
+        return AppConfig.getEffectiveStickStiffnessFromPercent(stiffnessPercent, AppConfig.ENERGY_SOLVER);
     }
 
     computeResiduals(topology) {

@@ -434,8 +434,8 @@
     <div class="modal" id="modal-stick">
         <div class="modal-content">
             <h3 id="stick-menu-title">Stick Actions</h3>
-            <label>Stiffness:</label>
-            <input type="number" class="modal-input" id="input-stick-stiffness" min="0" step="1" value="999">
+            <label>Stiffness (%):</label>
+            <input type="number" class="modal-input" id="input-stick-stiffness" min="0" max="100" step="1" value="100">
             <p id="stick-menu-note" style="font-size: 12px; color: #999; line-height: 1.5;">
                 Delete this stick or append another one to the end of the chain.
             </p>
@@ -469,18 +469,18 @@
     </script>
     <script src="src/utils/math.js?v=20260408b"></script>
     <script src="src/models/Disc.js?v=20260408b"></script>
-    <script src="src/models/Stick.js?v=20260408b"></script>
+    <script src="src/models/Stick.js?v=20260409c"></script>
     <script src="src/models/StickChain.js?v=20260408b"></script>
     <script src="src/models/Pencil.js?v=20260408b"></script>
     <script src="src/models/Anchor.js?v=20260408c"></script>
     <script src="src/models/System.js?v=20260408c"></script>
-    <script src="src/config.js?v=20260409a"></script>
+    <script src="src/config.js?v=20260409b"></script>
     <script src="https://cdn.jsdelivr.net/npm/ml-matrix@6.12.1/matrix.umd.js"></script>
     <script src="src/engine/KinematicSolver.js?v=20260408c"></script>
-    <script src="src/engine/EnergySolver.js?v=20260408d"></script>
-    <script src="src/engine/HybridSolver.js?v=20260409b"></script>
+    <script src="src/engine/EnergySolver.js?v=20260409e"></script>
+    <script src="src/engine/HybridSolver.js?v=20260409c"></script>
     <script src="src/renderer/CanvasRenderer.js?v=20260408c"></script>
-    <script src="src/ui/DrawingTools.js?v=20260408c"></script>
+    <script src="src/ui/DrawingTools.js?v=20260409d"></script>
     <script src="src/ui/PlaybackControls.js?v=20260408b"></script>
     <script src="src/app.js?v=20260408c"></script>
 </body>

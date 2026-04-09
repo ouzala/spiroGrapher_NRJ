@@ -2,10 +2,10 @@
  * Stick: A rigid stick with two revolute joints
  */
 class Stick {
-    constructor(id, restLength, stiffness = 999) {
+    constructor(id, restLength, stiffness = AppConfig.SYSTEM_DEFAULTS.STICK_STIFFNESS) {
         this.id = id;                    // unique identifier
         this.restLength = restLength;    // zero-energy / nominal stick length (mm)
-        this.stiffness = stiffness;      // spring stiffness (high values approximate rigid segments)
+        this.stiffness = AppConfig.clampStickStiffnessPercent(stiffness); // 0-100%, where 100 is rigid
         this.angle = 0;                  // current angle (radians)
         this.targetAngle = 0;            // target angle (for solver convergence)
         this.startX = 0;                 // start point x (mm)
