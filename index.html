@@ -70,6 +70,24 @@
             margin-bottom: 16px;
         }
 
+        .solver-toggle-button {
+            width: 100%;
+            text-align: left;
+            line-height: 1.4;
+        }
+
+        .solver-toggle-button strong {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .solver-toggle-button span {
+            display: block;
+            font-size: 10px;
+            color: #b8b8b8;
+        }
+
         .control-card {
             background: #2b2b2e;
             border: 1px solid #3e3e42;
@@ -319,6 +337,14 @@
     <div class="container">
         <!-- Left Toolbar -->
         <div class="toolbar">
+            <h3>Solver</h3>
+            <div class="tool-group">
+                <button class="tool-button solver-toggle-button" id="btn-toggle-solver">
+                    <strong>Solver: Energy</strong>
+                    <span>Click to switch to KinematicSolver</span>
+                </button>
+            </div>
+
             <h3>Building Tools</h3>
             <div class="tool-group">
                 <button class="tool-button" id="tool-disc">+ Add Disc</button>
@@ -448,6 +474,7 @@
     <script src="src/models/Pencil.js?v=20260408b"></script>
     <script src="src/models/Anchor.js?v=20260408c"></script>
     <script src="src/models/System.js?v=20260408c"></script>
+    <script src="src/config.js?v=20260409a"></script>
     <script src="https://cdn.jsdelivr.net/npm/ml-matrix@6.12.1/matrix.umd.js"></script>
     <script src="src/engine/KinematicSolver.js?v=20260408c"></script>
     <script src="src/engine/EnergySolver.js?v=20260408d"></script>

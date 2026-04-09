@@ -51,6 +51,7 @@ class DrawingTools {
             'btn-validate',
             'btn-print',
             'btn-load-test',
+            'btn-toggle-solver',
             'btn-clear',
             'btn-clear-traces',
             'btn-toggle-mechanics',

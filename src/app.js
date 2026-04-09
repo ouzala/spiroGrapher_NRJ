@@ -6,7 +6,8 @@ class App {
         this.canvas = document.getElementById('canvas');
         this.system = new System();
         this.renderer = new CanvasRenderer(this.canvas);
-        this.solver = new EnergySolver(this.system);
+        this.solverMode = 'energy';
+        this.solver = this.createSolver(this.solverMode);
         this.drawingTools = new DrawingTools(this);
         this.playbackControls = new PlaybackControls(this);
 
@@ -29,9 +30,49 @@ class App {
         window.addEventListener('contextmenu', event => event.preventDefault());
         document.getElementById('btn-print').addEventListener('click', () => this.printSystemConfiguration());
         document.getElementById('btn-load-test').addEventListener('click', () => this.loadDebugTestConfiguration());
+        document.getElementById('btn-toggle-solver').addEventListener('click', () => this.toggleSolverMode());
         this.onWindowResize();
         this.drawingTools.refreshGeometry();
         this.playbackControls.syncSidebar();
+        this.syncSolverToggleButton();
+    }
+
+    createSolver(mode) {
+        return mode === 'kinematic'
+            ? new KinematicSolver(this.system)
+            : new EnergySolver(this.system);
+    }
+
+    getSolverDisplayName(mode = this.solverMode) {
+        return mode === 'kinematic' ? 'Kinematic' : 'Energy';
+    }
+
+    syncSolverToggleButton() {
+        const button = document.getElementById('btn-toggle-solver');
+        if (!button) return;
+
+        const currentName = this.getSolverDisplayName();
+        const nextMode = this.solverMode === 'energy' ? 'kinematic' : 'energy';
+        const nextName = this.getSolverDisplayName(nextMode);
+        button.innerHTML = `<strong>Solver: ${currentName}</strong><span>Click to switch to ${nextName}Solver</span>`;
+    }
+
+    toggleSolverMode() {
+        const nextMode = this.solverMode === 'energy' ? 'kinematic' : 'energy';
+        this.setSolverMode(nextMode);
+    }
+
+    setSolverMode(mode) {
+        if (mode !== 'energy' && mode !== 'kinematic') return;
+
+        this.pauseForEditing();
+        this.solverMode = mode;
+        this.solver = this.createSolver(mode);
+        this.lastSolveResult = null;
+        this.drawingTools.refreshGeometry();
+        this.playbackControls.syncSidebar();
+        this.syncSolverToggleButton();
+        this.drawingTools.updateStatus(`${this.getSolverDisplayName()}Solver active.`);
     }
 
     onWindowResize() {
@@ -195,6 +236,9 @@ class App {
         this.system.simTime = 0;
         if (this.solver.lastSolvedNodePositions) {
             this.solver.lastSolvedNodePositions.clear();
+        }
+        if (this.solver.lastSolvedAngles) {
+            this.solver.lastSolvedAngles.clear();
         }
         document.getElementById('time-display').textContent = '0.00s';
     }

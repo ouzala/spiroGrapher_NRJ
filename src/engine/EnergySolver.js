@@ -8,13 +8,16 @@
 class EnergySolver {
     constructor(system) {
         this.system = system;
-        this.maxIterations = 40;
-        this.convergenceTolerance = 1e-3;
-        this.jacobianEpsilon = 1e-4;
-        this.damping = 1e-2;
-        this.maxCoordinateStep = 40;
-        this.anchorStiffness = 1e5;
-        this.fixedPointStiffness = 1e5;
+        this.maxIterations = AppConfig.SOLVER_MAX_ITERATIONS;
+        this.convergenceTolerance = AppConfig.SOLVER_CONVERGENCE_TOLERANCE;
+        this.jacobianEpsilon = AppConfig.SOLVER_JACOBIAN_EPSILON;
+        this.damping = AppConfig.SOLVER_DAMPING;
+        this.maxCoordinateStep = AppConfig.SOLVER_MAX_COORDINATE_STEP;
+        this.anchorStiffness = AppConfig.ANCHOR_STIFFNESS;
+        this.fixedPointStiffness = AppConfig.FIXED_POINT_STIFFNESS;
+        this.segmentStiffnessCutoff = AppConfig.STICK_RIGID_STIFFNESS_CUTOFF;
+        this.rigidStickStiffness = AppConfig.STICK_RIGID_STIFFNESS;
+        this.stickMinStiffness = AppConfig.STICK_MIN_STIFFNESS;
         this.lastSolvedNodePositions = new Map();
     }
 
@@ -230,6 +233,13 @@ class EnergySolver {
         }
     }
 
+    getEffectiveStickStiffness(stick) {
+        const stiffness = Number.isFinite(stick.stiffness) ? stick.stiffness : 0;
+        return stiffness >= this.segmentStiffnessCutoff
+            ? this.rigidStickStiffness
+            : Math.max(this.stickMinStiffness, stiffness);
+    }
+
     computeResiduals(topology) {
         const residuals = [];
 
@@ -237,7 +247,8 @@ class EnergySolver {
             const dx = segment.endNode.x - segment.startNode.x;
             const dy = segment.endNode.y - segment.startNode.y;
             const distance = Math.hypot(dx, dy);
-            const weight = Math.sqrt(Math.max(1e-6, segment.stick.stiffness));
+            const effectiveStiffness = this.getEffectiveStickStiffness(segment.stick);
+            const weight = Math.sqrt(effectiveStiffness);
             residuals.push(weight * (distance - segment.stick.length));
         }
 
