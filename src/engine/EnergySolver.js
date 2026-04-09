@@ -8,16 +8,16 @@
 class EnergySolver {
     constructor(system) {
         this.system = system;
-        this.maxIterations = AppConfig.SOLVER_MAX_ITERATIONS;
-        this.convergenceTolerance = AppConfig.SOLVER_CONVERGENCE_TOLERANCE;
-        this.jacobianEpsilon = AppConfig.SOLVER_JACOBIAN_EPSILON;
-        this.damping = AppConfig.SOLVER_DAMPING;
-        this.maxCoordinateStep = AppConfig.SOLVER_MAX_COORDINATE_STEP;
-        this.anchorStiffness = AppConfig.ANCHOR_STIFFNESS;
-        this.fixedPointStiffness = AppConfig.FIXED_POINT_STIFFNESS;
-        this.segmentStiffnessCutoff = AppConfig.STICK_RIGID_STIFFNESS_CUTOFF;
-        this.rigidStickStiffness = AppConfig.STICK_RIGID_STIFFNESS;
-        this.stickMinStiffness = AppConfig.STICK_MIN_STIFFNESS;
+        this.maxIterations = AppConfig.ENERGY_SOLVER.MAX_ITERATIONS;
+        this.convergenceTolerance = AppConfig.GENERAL_SIMULATION.CONVERGENCE_TOLERANCE;
+        this.jacobianEpsilon = AppConfig.GENERAL_SIMULATION.JACOBIAN_EPSILON;
+        this.damping = AppConfig.ENERGY_SOLVER.DAMPING;
+        this.maxCoordinateStep = AppConfig.ENERGY_SOLVER.MAX_COORDINATE_STEP;
+        this.anchorStiffness = AppConfig.ENERGY_SOLVER.ANCHOR_STIFFNESS;
+        this.fixedPointStiffness = AppConfig.ENERGY_SOLVER.FIXED_POINT_STIFFNESS;
+        this.segmentStiffnessCutoff = AppConfig.ENERGY_SOLVER.STICK_RIGID_STIFFNESS_CUTOFF;
+        this.rigidStickStiffness = AppConfig.ENERGY_SOLVER.STICK_RIGID_STIFFNESS;
+        this.stickMinStiffness = AppConfig.ENERGY_SOLVER.STICK_MIN_STIFFNESS;
         this.lastSolvedNodePositions = new Map();
     }
 

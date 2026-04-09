@@ -16,7 +16,7 @@ class App {
         this.pauseTime = null;
         this.timeScale = 1;
         this.lastFrameTime = 0;
-        this.fixedStepMs = 1000 / 60;
+        this.fixedStepMs = AppConfig.GENERAL_SIMULATION.FIXED_STEP_MS;
         this.initialSystem = null;
         this.showMechanics = true;
         this.lastSolveResult = null;
@@ -65,7 +65,7 @@ class App {
         const currentName = this.getSolverDisplayName();
         const nextMode = modes[(modes.indexOf(this.solverMode) + 1) % modes.length];
         const nextName = this.getSolverDisplayName(nextMode);
-        button.innerHTML = `<strong>Solver: ${currentName}</strong><span>Click to switch to ${nextName}Solver</span>`;
+        button.innerHTML = `<strong>Solver: ${currentName}</strong><span>Next: ${nextName}</span>`;
     }
 
     toggleSolverMode() {

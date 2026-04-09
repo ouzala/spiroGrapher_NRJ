@@ -14,18 +14,18 @@
 class HybridSolver {
     constructor(system) {
         this.system = system;
-        this.maxIterations = AppConfig.SOLVER_MAX_ITERATIONS;
-        this.convergenceTolerance = AppConfig.SOLVER_CONVERGENCE_TOLERANCE;
-        this.jacobianEpsilon = AppConfig.SOLVER_JACOBIAN_EPSILON;
-        this.damping = AppConfig.SOLVER_DAMPING;
-        this.maxCoordinateStep = AppConfig.SOLVER_MAX_COORDINATE_STEP;
-        this.maxDiscAngleStep = AppConfig.HYBRID_DISC_ANGLE_STEP;
-        this.meritConstraintWeight = AppConfig.HYBRID_MERIT_CONSTRAINT_WEIGHT;
-        this.driveWeight = AppConfig.HYBRID_DRIVE_WEIGHT;
-        this.freewheelRegularization = AppConfig.HYBRID_FREEWHEEL_REGULARIZATION;
-        this.segmentStiffnessCutoff = AppConfig.STICK_RIGID_STIFFNESS_CUTOFF;
-        this.rigidStickStiffness = AppConfig.STICK_RIGID_STIFFNESS;
-        this.stickMinStiffness = AppConfig.STICK_MIN_STIFFNESS;
+        this.maxIterations = AppConfig.HYBRID_SOLVER.MAX_ITERATIONS;
+        this.convergenceTolerance = AppConfig.GENERAL_SIMULATION.CONVERGENCE_TOLERANCE;
+        this.jacobianEpsilon = AppConfig.GENERAL_SIMULATION.JACOBIAN_EPSILON;
+        this.damping = AppConfig.HYBRID_SOLVER.DAMPING;
+        this.maxCoordinateStep = AppConfig.HYBRID_SOLVER.MAX_COORDINATE_STEP;
+        this.maxDiscAngleStep = AppConfig.HYBRID_SOLVER.MAX_DISC_ANGLE_STEP;
+        this.meritConstraintWeight = AppConfig.HYBRID_SOLVER.MERIT_CONSTRAINT_WEIGHT;
+        this.driveWeight = AppConfig.HYBRID_SOLVER.DRIVE_WEIGHT;
+        this.freewheelRegularization = AppConfig.HYBRID_SOLVER.FREEWHEEL_REGULARIZATION;
+        this.segmentStiffnessCutoff = AppConfig.HYBRID_SOLVER.STICK_RIGID_STIFFNESS_CUTOFF;
+        this.rigidStickStiffness = AppConfig.HYBRID_SOLVER.STICK_RIGID_STIFFNESS;
+        this.stickMinStiffness = AppConfig.HYBRID_SOLVER.STICK_MIN_STIFFNESS;
         this.lastSolvedNodePositions = new Map();
         this.lastSolvedDiscAngles = new Map();
     }

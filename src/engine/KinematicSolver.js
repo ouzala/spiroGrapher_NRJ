@@ -4,11 +4,11 @@
 class KinematicSolver {
     constructor(system) {
         this.system = system;
-        this.maxIterations = 30;
-        this.convergenceTolerance = 1e-3;
-        this.jacobianEpsilon = 1e-4;
-        this.damping = 1e-3;
-        this.maxAngleStep = 0.35;
+        this.maxIterations = AppConfig.KINEMATIC_SOLVER.MAX_ITERATIONS;
+        this.convergenceTolerance = AppConfig.GENERAL_SIMULATION.CONVERGENCE_TOLERANCE;
+        this.jacobianEpsilon = AppConfig.GENERAL_SIMULATION.JACOBIAN_EPSILON;
+        this.damping = AppConfig.KINEMATIC_SOLVER.DAMPING;
+        this.maxAngleStep = AppConfig.KINEMATIC_SOLVER.MAX_ANGLE_STEP;
         this.lastSolvedAngles = new Map();
     }
 

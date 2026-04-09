@@ -1,25 +1,42 @@
-window.AppConfig = window.AppConfig || {
+const SHARED_SOLVER_PARAMETERS = {
+    CONVERGENCE_TOLERANCE: 1e-3,
+    JACOBIAN_EPSILON: 1e-4
+};
 
-    // Simulation General Parameters (Both solvers)
-
-    // EnergySolver.js :
-    // ... Segment stiffness values
+const POSITION_SOLVER_PARAMETERS = {
+    MAX_COORDINATE_STEP: 40,
     STICK_RIGID_STIFFNESS_CUTOFF: 999,
     STICK_RIGID_STIFFNESS: 1e6,
-    STICK_MIN_STIFFNESS: 1e-6,
+    STICK_MIN_STIFFNESS: 1e-6
+};
 
-    // Solver defaults
-    ANCHOR_STIFFNESS: 1e5,
-    FIXED_POINT_STIFFNESS: 1e5,
-    SOLVER_MAX_ITERATIONS: 40,
-    SOLVER_CONVERGENCE_TOLERANCE: 1e-3,
-    SOLVER_JACOBIAN_EPSILON: 1e-4,
-    SOLVER_DAMPING: 1e-2,
-    SOLVER_MAX_COORDINATE_STEP: 40,
+window.AppConfig = {
+    GENERAL_SIMULATION: {
+        FIXED_STEP_MS: 1000 / 60,
+        ...SHARED_SOLVER_PARAMETERS
+    },
 
-    // HybridSolver.js
-    HYBRID_MERIT_CONSTRAINT_WEIGHT: 50,
-    HYBRID_DRIVE_WEIGHT: 5e-2,
-    HYBRID_FREEWHEEL_REGULARIZATION: 1e-4,
-    HYBRID_DISC_ANGLE_STEP: 0.4
+    KINEMATIC_SOLVER: {
+        MAX_ITERATIONS: 30,
+        DAMPING: 1e-3,
+        MAX_ANGLE_STEP: 0.35
+    },
+
+    ENERGY_SOLVER: {
+        ...POSITION_SOLVER_PARAMETERS,
+        MAX_ITERATIONS: 40,
+        DAMPING: 1e-2,
+        ANCHOR_STIFFNESS: 1e5,
+        FIXED_POINT_STIFFNESS: 1e5
+    },
+
+    HYBRID_SOLVER: {
+        ...POSITION_SOLVER_PARAMETERS,
+        MAX_ITERATIONS: 40,
+        DAMPING: 1e-2,
+        MAX_DISC_ANGLE_STEP: 0.4,
+        MERIT_CONSTRAINT_WEIGHT: 50,
+        DRIVE_WEIGHT: 5e-2,
+        FREEWHEEL_REGULARIZATION: 1e-4
+    }
 };
