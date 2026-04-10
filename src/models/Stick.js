@@ -15,6 +15,7 @@ class Stick {
         this.actualLength = restLength;  // rendered length after solving
         this.strain = 0;                 // axial strain after solving
         this.tension = 0;                // approximate transmitted axial force
+        this.slider = null;              // optional stick-owned slider
     }
 
     /**
@@ -79,6 +80,7 @@ class Stick {
         s.setEndpoints(this.startX, this.startY, this.endX, this.endY);
         s.strain = this.strain;
         s.tension = this.tension;
+        s.slider = null;
         return s;
     }
 }

@@ -22,6 +22,7 @@ class DrawingTools {
         document.getElementById('tool-screen').addEventListener('click', () => this.activateTool('screen'));
         document.getElementById('tool-stick').addEventListener('click', () => this.activateTool('stick'));
         document.getElementById('tool-anchor').addEventListener('click', () => this.activateTool('anchor'));
+        document.getElementById('tool-slider').addEventListener('click', () => this.activateTool('slider'));
         document.getElementById('tool-pencil').addEventListener('click', () => this.activateTool('pencil'));
 
         document.getElementById('btn-validate').addEventListener('click', () => this.validateSystem());
@@ -47,6 +48,7 @@ class DrawingTools {
 
         document.getElementById('btn-close-stick-menu').addEventListener('click', () => this.closeStickMenu());
         document.getElementById('btn-delete-stick').addEventListener('click', () => this.deleteStick());
+        document.getElementById('btn-delete-stick-slider').addEventListener('click', () => this.deleteStickSlider());
         document.getElementById('btn-save-stick').addEventListener('click', () => this.saveStickSettings());
         document.getElementById('btn-add-next-stick').addEventListener('click', () => this.startAppendStick());
         document.getElementById('input-stick-stiffness').addEventListener('input', event => {
@@ -91,6 +93,7 @@ class DrawingTools {
         document.getElementById('tool-screen').classList.toggle('active', this.activeTool === 'screen');
         document.getElementById('tool-stick').classList.toggle('active', this.activeTool === 'stick');
         document.getElementById('tool-anchor').classList.toggle('active', this.activeTool === 'anchor');
+        document.getElementById('tool-slider').classList.toggle('active', this.activeTool === 'slider');
         document.getElementById('tool-pencil').classList.toggle('active', this.activeTool === 'pencil');
         this.updateStatus();
     }
@@ -103,6 +106,7 @@ class DrawingTools {
         document.getElementById('tool-screen').classList.remove('active');
         document.getElementById('tool-stick').classList.remove('active');
         document.getElementById('tool-anchor').classList.remove('active');
+        document.getElementById('tool-slider').classList.remove('active');
         document.getElementById('tool-pencil').classList.remove('active');
         this.updateStatus();
     }
@@ -157,6 +161,9 @@ class DrawingTools {
                 return 'Stick tool: click a disc or screen to start a new chain, then click again to place its first stick.';
             }
         }
+        if (this.activeTool === 'slider') {
+            return 'Slider tool: click an existing stick segment to place or replace its fixed slider point.';
+        }
         return null;
     }
 
@@ -187,6 +194,12 @@ class DrawingTools {
         if (this.activeTool === 'anchor' && event.button === 0) {
             this.pauseForEditing();
             this.handleAnchorToolClick(world, canvasX, canvasY);
+            return;
+        }
+
+        if (this.activeTool === 'slider' && event.button === 0) {
+            this.pauseForEditing();
+            this.handleSliderToolClick(canvasX, canvasY);
             return;
         }
 
@@ -695,6 +708,7 @@ class DrawingTools {
         const chain = this.app.system.getStickChain(chainId);
         const stick = chain?.getStick(stickIndex) || null;
         const isLast = chain ? stickIndex === chain.sticks.length - 1 : false;
+        const slider = stick?.slider || null;
         document.getElementById('stick-menu-title').textContent = `Stick ${stickIndex + 1} Actions`;
         this.setSliderValue(
             'input-stick-stiffness',
@@ -703,8 +717,12 @@ class DrawingTools {
         );
         document.getElementById('btn-add-next-stick').disabled = !isLast;
         document.getElementById('stick-menu-note').textContent = isLast
-            ? 'You can update this segment stiffness percentage, delete the stick, or append another stick to the chain.'
-            : 'You can update this segment stiffness percentage or delete the stick. Only the last stick in a chain can receive a new next stick.';
+            ? 'You can update this segment stiffness percentage, manage its slider, delete the stick, or append another stick to the chain.'
+            : 'You can update this segment stiffness percentage, manage its slider, or delete the stick. Only the last stick in a chain can receive a new next stick.';
+        document.getElementById('stick-slider-summary').textContent = slider
+            ? `Slider active at (${slider.x.toFixed(1)}, ${slider.y.toFixed(1)}) on ${slider.distance.toFixed(1)} mm along the segment.`
+            : 'No slider on this segment.';
+        document.getElementById('btn-delete-stick-slider').disabled = !slider;
         this.openModal('modal-stick');
     }
 
@@ -725,6 +743,7 @@ class DrawingTools {
         document.getElementById('tool-disc').classList.remove('active');
         document.getElementById('tool-screen').classList.remove('active');
         document.getElementById('tool-anchor').classList.remove('active');
+        document.getElementById('tool-slider').classList.remove('active');
         document.getElementById('tool-pencil').classList.remove('active');
         this.pendingStick = {
             mode: 'append',
@@ -757,6 +776,18 @@ class DrawingTools {
         this.closeStickMenu();
         this.refreshGeometry();
         this.updateStatus('Stick deleted.');
+    }
+
+    deleteStickSlider() {
+        if (!this.editingStickTarget) return;
+        const chain = this.app.system.getStickChain(this.editingStickTarget.chainId);
+        const stick = chain?.getStick(this.editingStickTarget.stickIndex) || null;
+        if (!stick?.slider) return;
+
+        this.app.system.removeSlider(stick.slider.id);
+        this.openStickMenu(this.editingStickTarget.chainId, this.editingStickTarget.stickIndex);
+        this.refreshGeometry();
+        this.updateStatus('Slider removed.');
     }
 
     handlePencilToolClick(canvasX, canvasY) {
@@ -792,6 +823,30 @@ class DrawingTools {
         this.activateTool('anchor');
         this.refreshGeometry();
         this.updateStatus(`Anchor ${anchor.id} added.`);
+    }
+
+    handleSliderToolClick(canvasX, canvasY) {
+        const hit = this.app.renderer.findStickAtCanvas(canvasX, canvasY, this.app.system, 10);
+        if (!hit) {
+            this.updateStatus('Slider must be placed on an existing stick segment.');
+            return;
+        }
+
+        const stick = this.app.system.getStickById(hit.id);
+        if (!stick) return;
+
+        const hadSlider = Boolean(stick.slider);
+        const slider = this.app.system.addOrReplaceSlider(
+            stick.id,
+            hit.t * stick.restLength,
+            hit.point.x,
+            hit.point.y
+        );
+        if (!slider) return;
+
+        this.activateTool('slider');
+        this.refreshGeometry();
+        this.updateStatus(`Slider ${slider.id} ${hadSlider ? 'updated' : 'added'}.`);
     }
 
     getAnchorDefinitionForCanvas(canvasX, canvasY, world) {
@@ -1008,6 +1063,7 @@ class DrawingTools {
         document.getElementById('status-discs').textContent = this.app.system.getStandardDiscs().length;
         document.getElementById('status-screens').textContent = this.app.system.getScreens().length;
         document.getElementById('status-chains').textContent = this.app.system.stickChains.length;
+        document.getElementById('status-sliders').textContent = this.app.system.sliders.length;
         document.getElementById('status-pencils').textContent = this.app.system.pencils.length;
     }
 }

@@ -44,6 +44,8 @@ const DEFAULT_COLORS = {
             
             anchorFill: '#f1c40f',
             anchorStroke: '#b87e00',
+            sliderFill: '#7ed957',
+            sliderStroke: '#2c6a1f',
             
             pencilDefaultColor: '#1de6e6',
             
@@ -57,6 +59,7 @@ const VALIDATOR_DEFAULTS = {
     MAX_CHAINS : 10,
     MAX_SCREENS : 10,
     MAX_ANCHORS : 10,
+    MAX_SLIDERS : 50,
 }
 
 const TESTING_LANDSCAPE = {

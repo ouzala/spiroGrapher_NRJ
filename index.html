@@ -129,6 +129,7 @@
         .tool-icon.icon-disc::before,
         .tool-icon.icon-screen::before,
         .tool-icon.icon-anchor::before,
+        .tool-icon.icon-slider::before,
         .tool-icon.icon-pencil::before {
             content: "";
             position: absolute;
@@ -218,6 +219,31 @@
                 -8px -1px 0 -5px currentColor,
                 8px -1px 0 -5px currentColor,
                 0 -13px 0 -6px currentColor;
+        }
+
+        .tool-icon.icon-slider::before,
+        .tool-icon.icon-slider::after {
+            content: "";
+            position: absolute;
+        }
+
+        .tool-icon.icon-slider::before {
+            width: 24px;
+            height: 4px;
+            background: currentColor;
+            border-radius: 999px;
+            transform: rotate(-28deg);
+        }
+
+        .tool-icon.icon-slider::after {
+            width: 14px;
+            height: 14px;
+            border: 3px solid currentColor;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow:
+                inset 0 0 0 2px rgba(255, 255, 255, 0.08),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
         }
 
         .tool-icon.icon-pencil::before {
@@ -534,6 +560,10 @@
                     <span class="tool-icon icon-anchor" aria-hidden="true"></span>
                     <span class="tool-label">Anchor</span>
                 </button>
+                <button class="tool-button icon-tool-button" id="tool-slider" title="Add Slider" aria-label="Add Slider">
+                    <span class="tool-icon icon-slider" aria-hidden="true"></span>
+                    <span class="tool-label">Slider</span>
+                </button>
                 <button class="tool-button icon-tool-button" id="tool-pencil" title="Add Pencil" aria-label="Add Pencil">
                     <span class="tool-icon icon-pencil" aria-hidden="true"></span>
                     <span class="tool-label">Pencil</span>
@@ -568,6 +598,7 @@
                 <div><span class="status-label">Discs:</span> <span id="status-discs">0</span></div>
                 <div><span class="status-label">Screens:</span> <span id="status-screens">0</span></div>
                 <div><span class="status-label">Chains:</span> <span id="status-chains">0</span></div>
+                <div><span class="status-label">Sliders:</span> <span id="status-sliders">0</span></div>
                 <div><span class="status-label">Pencils:</span> <span id="status-pencils">0</span></div>
                 <div style="margin-top: 8px; border-top: 1px solid #3e3e42; padding-top: 8px;">
                     <div id="status-message" style="color: #888; font-size: 10px; line-height: 1.4;">Ready</div>
@@ -640,7 +671,11 @@
             <p id="stick-menu-note" style="font-size: 12px; color: #999; line-height: 1.5;">
                 Delete this stick or append another one to the end of the chain.
             </p>
+            <p id="stick-slider-summary" style="font-size: 12px; color: #9ccf85; line-height: 1.5;">
+                No slider on this segment.
+            </p>
             <div class="modal-buttons">
+                <button id="btn-delete-stick-slider">Remove Slider</button>
                 <button id="btn-delete-stick">Delete</button>
                 <button id="btn-close-stick-menu">Close</button>
                 <button class="primary" id="btn-save-stick">Save</button>
@@ -671,19 +706,20 @@
     <script src="src/utils/math.js?v=20260408b"></script>
     <script src="src/models/Disc.js?v=20260410a"></script>
     <script src="src/models/Screen.js?v=20260410a"></script>
-    <script src="src/models/Stick.js?v=20260409c"></script>
+    <script src="src/models/Stick.js?v=20260410b"></script>
     <script src="src/models/StickChain.js?v=20260408b"></script>
     <script src="src/models/Pencil.js?v=20260410a"></script>
     <script src="src/models/Anchor.js?v=20260408c"></script>
-    <script src="src/models/System.js?v=20260410a"></script>
-    <script src="src/config.js?v=20260409b"></script>
+    <script src="src/models/Slider.js?v=20260410b"></script>
+    <script src="src/models/System.js?v=20260410b"></script>
+    <script src="src/config.js?v=20260410b"></script>
     <script src="https://cdn.jsdelivr.net/npm/ml-matrix@6.12.1/matrix.umd.js"></script>
-    <script src="src/engine/KinematicSolver.js?v=20260408c"></script>
-    <script src="src/engine/EnergySolver.js?v=20260409e"></script>
-    <script src="src/engine/HybridSolver.js?v=20260409c"></script>
-    <script src="src/renderer/CanvasRenderer.js?v=20260410a"></script>
-    <script src="src/ui/DrawingTools.js?v=20260410a"></script>
+    <script src="src/engine/KinematicSolver.js?v=20260410b"></script>
+    <script src="src/engine/EnergySolver.js?v=20260410f"></script>
+    <script src="src/engine/HybridSolver.js?v=20260410b"></script>
+    <script src="src/renderer/CanvasRenderer.js?v=20260410b"></script>
+    <script src="src/ui/DrawingTools.js?v=20260410b"></script>
     <script src="src/ui/PlaybackControls.js?v=20260410a"></script>
-    <script src="src/app.js?v=20260410a"></script>
+    <script src="src/app.js?v=20260410b"></script>
 </body>
 </html>

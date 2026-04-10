@@ -8,12 +8,14 @@ class System {
         this.stickChains = [];
         this.pencils = [];
         this.anchors = [];
+        this.sliders = [];
         this.nextDiscId = 1;
         this.nextScreenId = 1;
         this.nextChainId = 1;
         this.stickIdCounter = 1;
         this.nextPencilId = 1;
         this.nextAnchorId = 1;
+        this.nextSliderId = 1;
         this.simTime = 0;
     }
 
@@ -52,6 +54,31 @@ class System {
         const anchor = new Anchor(this.nextAnchorId++, primaryAttachment, targetAttachment);
         this.anchors.push(anchor);
         return anchor;
+    }
+
+    addOrReplaceSlider(stickId, distance, x, y) {
+        const stick = this.getStickById(stickId);
+        if (!stick) return null;
+
+        const clampedDistance = MathUtils.clamp(
+            Number.isFinite(distance) ? distance : 0,
+            0,
+            Math.max(stick.restLength || 0, 0)
+        );
+
+        const existingSlider = this.getSliderForStick(stickId);
+        if (existingSlider) {
+            existingSlider.distance = clampedDistance;
+            existingSlider.x = x;
+            existingSlider.y = y;
+            stick.slider = existingSlider;
+            return existingSlider;
+        }
+
+        const slider = new Slider(this.nextSliderId++, stickId, clampedDistance, x, y);
+        this.sliders.push(slider);
+        stick.slider = slider;
+        return slider;
     }
 
     getDisc(id) {
@@ -127,6 +154,32 @@ class System {
         return this.anchors.find(anchor => anchor.id === id) || null;
     }
 
+    getSlider(id) {
+        return this.sliders.find(slider => slider.id === id) || null;
+    }
+
+    getSliderForStick(stickId) {
+        const stick = this.getStickById(stickId);
+        if (stick?.slider) return stick.slider;
+        return this.sliders.find(slider => slider.stickId === stickId) || null;
+    }
+
+    removeSlider(sliderId) {
+        const slider = this.getSlider(sliderId);
+        if (!slider) return;
+        const stick = this.getStickById(slider.stickId);
+        if (stick?.slider?.id === slider.id) {
+            stick.slider = null;
+        }
+        this.sliders = this.sliders.filter(item => item.id !== sliderId);
+    }
+
+    removeSliderForStick(stickId) {
+        const slider = this.getSliderForStick(stickId);
+        if (!slider) return;
+        this.removeSlider(slider.id);
+    }
+
     nextStickId() {
         return this.stickIdCounter++;
     }
@@ -195,6 +248,12 @@ class System {
             hardCouplingCount += 1;
         }
 
+        for (const slider of this.sliders) {
+            if (!slider) continue;
+            hardConstraintCount += 2;
+            hardCouplingCount += 1;
+        }
+
         if (unknownAngles === 0) {
             return {
                 sufficient: false,
@@ -246,6 +305,9 @@ class System {
         }
         if (this.anchors.length > AppConfig.VALIDATORS.MAX_ANCHORS) {
             return { valid: false, message: `Too many Anchors (max ${AppConfig.VALIDATORS.MAX_ANCHORS} )` };
+        }
+        if (this.sliders.length > AppConfig.VALIDATORS.MAX_SLIDERS) {
+            return { valid: false, message: `Too many Sliders (max ${AppConfig.VALIDATORS.MAX_SLIDERS} )` };
         }
         if (this.screens.length > AppConfig.VALIDATORS.MAX_SCREENS) {
             return { valid: false, message: `Too many Screens (max ${AppConfig.VALIDATORS.MAX_SCREENS} )` };
@@ -322,6 +384,30 @@ class System {
             }
         }
 
+        const sliderStickIds = new Set();
+        for (const slider of this.sliders) {
+            const stick = this.getStickById(slider.stickId);
+            if (!stick) {
+                return { valid: false, message: `Slider ${slider.id}: host stick ${slider.stickId} not found` };
+            }
+            if (!Number.isFinite(slider.distance)) {
+                return { valid: false, message: `Slider ${slider.id}: invalid distance` };
+            }
+            if (!Number.isFinite(slider.x) || !Number.isFinite(slider.y)) {
+                return { valid: false, message: `Slider ${slider.id}: invalid target position` };
+            }
+            if (slider.distance < -1e-6 || slider.distance > stick.restLength + 1e-6) {
+                return { valid: false, message: `Slider ${slider.id}: distance lies outside host stick` };
+            }
+            if (sliderStickIds.has(slider.stickId)) {
+                return { valid: false, message: `Stick ${slider.stickId}: can own only 1 slider` };
+            }
+            sliderStickIds.add(slider.stickId);
+            if (stick.slider?.id !== slider.id) {
+                return { valid: false, message: `Slider ${slider.id}: host stick ownership mismatch` };
+            }
+        }
+
         return { valid: true, message: 'System is valid' };
     }
 
@@ -329,7 +415,7 @@ class System {
         const validation = this.validate();
         const driveAnalysis = this.analyzeDiscDrives();
         const driveNote = driveAnalysis.warnings.length > 0 ? ` ${driveAnalysis.warnings[0]}` : '';
-        return `Discs: ${this.getStandardDiscs().length}, Screens: ${this.getScreens().length}, Chains: ${this.stickChains.length}, Anchors: ${this.anchors.length}, Pencils: ${this.pencils.length}. ${validation.message}${driveNote}`;
+        return `Discs: ${this.getStandardDiscs().length}, Screens: ${this.getScreens().length}, Chains: ${this.stickChains.length}, Anchors: ${this.anchors.length}, Sliders: ${this.sliders.length}, Pencils: ${this.pencils.length}. ${validation.message}${driveNote}`;
     }
 
     removeDisc(discId) {
@@ -373,6 +459,14 @@ class System {
             }
             return targetType !== surfaceType || anchor.targetAttachment.id !== surfaceId;
         });
+        this.sliders = this.sliders.filter(slider => {
+            if (!removedStickIds.has(slider.stickId)) return true;
+            const stick = this.getStickById(slider.stickId);
+            if (stick?.slider?.id === slider.id) {
+                stick.slider = null;
+            }
+            return false;
+        });
     }
 
     removeStick(chainId, stickIndex) {
@@ -396,6 +490,13 @@ class System {
             }
             return true;
         });
+        this.sliders = this.sliders.filter(slider => !removedStickIds.has(slider.stickId));
+        for (const stickId of removedStickIds) {
+            const stick = this.getStickById(stickId);
+            if (stick) {
+                stick.slider = null;
+            }
+        }
 
         if (chain.sticks.length === 0) {
             this.stickChains = this.stickChains.filter(item => item.id !== chainId);
@@ -534,6 +635,16 @@ class System {
             newSys.nextAnchorId = Math.max(newSys.nextAnchorId, newAnchor.id + 1);
         }
 
+        for (const slider of this.sliders) {
+            const newSlider = slider.clone();
+            newSys.sliders.push(newSlider);
+            newSys.nextSliderId = Math.max(newSys.nextSliderId, newSlider.id + 1);
+            const stick = newSys.getStickById(newSlider.stickId);
+            if (stick) {
+                stick.slider = newSlider;
+            }
+        }
+
         newSys.stickIdCounter = this.stickIdCounter;
         newSys.simTime = this.simTime;
         return newSys;
@@ -545,12 +656,14 @@ class System {
         this.stickChains = [];
         this.pencils = [];
         this.anchors = [];
+        this.sliders = [];
         this.nextDiscId = 1;
         this.nextScreenId = 1;
         this.nextChainId = 1;
         this.stickIdCounter = 1;
         this.nextPencilId = 1;
         this.nextAnchorId = 1;
+        this.nextSliderId = 1;
         this.simTime = 0;
     }
 }

@@ -210,6 +210,18 @@ class HybridSolver {
             this.pushAttachmentConstraint(topology, `anchor:${anchor.id}`, primaryNode, anchor.targetAttachment, 0);
         }
 
+        for (const slider of this.system.sliders) {
+            const sliderNode = this.resolveSliderNode(topology, slider);
+            if (!sliderNode) continue;
+            topology.nodeCoincidenceConstraints.push({
+                key: `slider:${slider.id}`,
+                node: sliderNode,
+                targetNode: null,
+                attachment: { type: 'anchor', x: slider.x, y: slider.y },
+                compliance: 0
+            });
+        }
+
         for (const disc of this.system.getRotatingBodies()) {
             if (!disc.isHardDriven()) {
                 topology.softDiscs.push(disc);
@@ -244,6 +256,20 @@ class HybridSolver {
         for (const anchor of this.system.anchors) {
             register(anchor.primaryAttachment);
             register(anchor.targetAttachment);
+        }
+
+        for (const slider of this.system.sliders) {
+            const stick = this.system.getStickById(slider.stickId);
+            if (!stick || !Number.isFinite(stick.restLength) || stick.restLength <= 1e-6) continue;
+            const fraction = MathUtils.clamp((slider.distance || 0) / stick.restLength, 0, 1);
+            if (fraction <= 1e-6 || fraction >= 1 - 1e-6) continue;
+            if (!splitMap.has(stick.id)) {
+                splitMap.set(stick.id, []);
+            }
+            const values = splitMap.get(stick.id);
+            if (!values.some(value => Math.abs(value - fraction) < 1e-6)) {
+                values.push(fraction);
+            }
         }
 
         return splitMap;
@@ -656,6 +682,20 @@ class HybridSolver {
         const stick = this.system.getStickById(attachment.id);
         if (!stick || !Number.isFinite(stick.restLength) || stick.restLength <= 1e-6) return null;
         const fraction = MathUtils.clamp((attachment.distance || 0) / stick.restLength, 0, 1);
+        if (fraction <= 1e-6) {
+            return this.findRenderedStickEndpoint(topology, stick.id, 'start');
+        }
+        if (fraction >= 1 - 1e-6) {
+            return this.findRenderedStickEndpoint(topology, stick.id, 'end');
+        }
+        return topology.hostAttachmentNodes.get(this.getHostAttachmentKey(stick.id, fraction)) || null;
+    }
+
+    resolveSliderNode(topology, slider) {
+        if (!slider) return null;
+        const stick = this.system.getStickById(slider.stickId);
+        if (!stick || !Number.isFinite(stick.restLength) || stick.restLength <= 1e-6) return null;
+        const fraction = MathUtils.clamp((slider.distance || 0) / stick.restLength, 0, 1);
         if (fraction <= 1e-6) {
             return this.findRenderedStickEndpoint(topology, stick.id, 'start');
         }

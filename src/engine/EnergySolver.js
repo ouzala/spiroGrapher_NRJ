@@ -86,7 +86,8 @@ class EnergySolver {
             segments: [],
             softDiscAttachments: [],
             chainEndConstraints: [],
-            manualAnchors: []
+            manualAnchors: [],
+            sliderConstraints: []
         };
 
         for (const chain of this.system.stickChains) {
@@ -161,6 +162,13 @@ class EnergySolver {
             topology.manualAnchors.push({
                 anchor,
                 stiffness: this.anchorStiffness
+            });
+        }
+
+        for (const slider of this.system.sliders) {
+            topology.sliderConstraints.push({
+                slider,
+                stiffness: this.fixedPointStiffness
             });
         }
 
@@ -275,6 +283,15 @@ class EnergySolver {
             residuals.push(
                 weight * (primaryPos.x - targetPos.x),
                 weight * (primaryPos.y - targetPos.y)
+            );
+        }
+
+        for (const entry of topology.sliderConstraints) {
+            const primaryPos = this.getSliderPosition(entry.slider);
+            const weight = Math.sqrt(entry.stiffness);
+            residuals.push(
+                weight * (primaryPos.x - entry.slider.x),
+                weight * (primaryPos.y - entry.slider.y)
             );
         }
 
@@ -439,6 +456,11 @@ class EnergySolver {
 
         const stick = this.system.getStickById(anchor.primaryAttachment.id);
         return stick ? stick.getPointAtDistance(anchor.primaryAttachment.distance) : { x: 0, y: 0 };
+    }
+
+    getSliderPosition(slider) {
+        const stick = this.system.getStickById(slider?.stickId);
+        return stick ? stick.getPointAtDistance(slider.distance) : { x: 0, y: 0 };
     }
 
     getNodeKey(chainId, nodeIndex) {

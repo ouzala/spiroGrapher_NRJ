@@ -130,6 +130,10 @@ class CanvasRenderer {
             for (const anchor of system.anchors) {
                 this.drawManualAnchor(anchor, system);
             }
+
+            for (const slider of system.sliders) {
+                this.drawSlider(slider, system);
+            }
         }
 
         for (const pencil of system.pencils) {
@@ -299,6 +303,37 @@ class CanvasRenderer {
             stroke: this.colors.anchorStroke,
             radius: this.colors.jointRadius + 1
         });
+    }
+
+    drawSlider(slider, system) {
+        const stick = system.getStickById(slider?.stickId);
+        if (!stick) return;
+
+        const marker = this.worldToCanvas(slider.x, slider.y);
+        const constrainedPoint = stick.getPointAtDistance(slider.distance);
+        const constrainedCanvas = this.worldToCanvas(constrainedPoint.x, constrainedPoint.y);
+        const radius = this.colors.jointRadius + 2;
+
+        this.ctx.strokeStyle = this.colors.sliderStroke;
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(constrainedCanvas.x, constrainedCanvas.y);
+        this.ctx.lineTo(marker.x, marker.y);
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = this.colors.sliderFill;
+        this.ctx.beginPath();
+        this.ctx.arc(marker.x, marker.y, radius, 0, 2 * Math.PI);
+        this.ctx.fill();
+
+        this.ctx.strokeStyle = this.colors.sliderStroke;
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(marker.x - radius - 2, marker.y);
+        this.ctx.lineTo(marker.x + radius + 2, marker.y);
+        this.ctx.moveTo(marker.x, marker.y - radius - 2);
+        this.ctx.lineTo(marker.x, marker.y + radius + 2);
+        this.ctx.stroke();
     }
 
     getAttachmentPosition(attachment, system) {

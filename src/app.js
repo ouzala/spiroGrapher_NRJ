@@ -409,7 +409,12 @@ class App {
                         stiffness: this.roundValue(stick.stiffness),
                         angle: this.roundValue(stick.angle),
                         start: this.roundPoint({ x: stick.startX, y: stick.startY }),
-                        end: this.roundPoint({ x: stick.endX, y: stick.endY })
+                        end: this.roundPoint({ x: stick.endX, y: stick.endY }),
+                        slider: stick.slider ? {
+                            id: stick.slider.id,
+                            distance: this.roundValue(stick.slider.distance),
+                            target: this.roundPoint({ x: stick.slider.x, y: stick.slider.y })
+                        } : null
                     })),
                     nodes,
                     anchors
@@ -430,6 +435,12 @@ class App {
                     y: this.roundValue(anchor.targetAttachment.y)
                 } : null,
                 point: this.roundPoint(this.solver.getAnchorPrimaryPosition(anchor))
+            })),
+            sliders: this.system.sliders.map(slider => ({
+                id: slider.id,
+                stickId: slider.stickId,
+                distance: this.roundValue(slider.distance),
+                target: this.roundPoint({ x: slider.x, y: slider.y })
             })),
             pencils: this.system.pencils.map(pencil => ({
                 id: pencil.id,

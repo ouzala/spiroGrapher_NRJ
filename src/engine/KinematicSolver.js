@@ -154,6 +154,11 @@ class KinematicSolver {
             residuals.push(targetPos.x - primaryPos.x, targetPos.y - primaryPos.y);
         }
 
+        for (const slider of this.system.sliders) {
+            const sliderPos = this.getSliderPosition(slider);
+            residuals.push(slider.x - sliderPos.x, slider.y - sliderPos.y);
+        }
+
         return residuals;
     }
 
@@ -297,6 +302,11 @@ class KinematicSolver {
         const stick = this.system.getStickById(anchor.primaryAttachment.id);
         if (!stick) return { x: 0, y: 0 };
         return stick.getPointAtDistance(anchor.primaryAttachment.distance);
+    }
+
+    getSliderPosition(slider) {
+        const stick = this.system.getStickById(slider?.stickId);
+        return stick ? stick.getPointAtDistance(slider.distance) : { x: 0, y: 0 };
     }
 
     hasHardEndConstraint(chain) {
