@@ -2,7 +2,7 @@
  * Screen: A rotating drawing board with its own drive state and geometry.
  */
 class Screen {
-    constructor(id, x, y, radius, rpm, color = '#6dd3c7', transparencyMode = false) {
+    constructor(id, x, y, radius, rpm, color, transparencyMode = false) {
         this.kind = 'screen';
         this.id = id;
         this.x = x;

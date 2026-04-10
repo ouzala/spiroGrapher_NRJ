@@ -12,29 +12,7 @@ class CanvasRenderer {
         this.panY = this.height / 2;
         this.zoom = 1;
 
-        this.colors = {
-            background: '#282828',
-            gridColor: '#333',
-            
-            discFill: '#3498db',
-            discStroke: '#2980b9',
-            discCenter: '#103a5c',
-            
-            stickStroke: '#e74c3c',
-            stickWidth: 3,
-            jointRadius: 4,
-            jointFill: '#ff4d4f',
-            
-            anchorFill: '#f1c40f',
-            anchorStroke: '#c89d08',
-            
-            pencilDefaultColor: '#6dd3c7',
-            pencilRadius: 4,
-
-            screenFill: '#080808',
-            screenStroke: '#080808',
-            screenCenter: '#080808',
-        };
+        this.colors = { ...AppConfig.COLORS };
     }
 
     resize(width, height) {
@@ -113,8 +91,8 @@ class CanvasRenderer {
         const showMechanics = options.showMechanics !== false;
         this.clear();
 
-        for (const disc of system.getScreens()) {
-            this.drawDisc(disc);
+        for (const screen of system.getScreens()) {
+            this.drawDisc(screen);
         }
 
         if (showMechanics) {
@@ -130,10 +108,6 @@ class CanvasRenderer {
         if (showMechanics) {
             for (const chain of system.stickChains) {
                 this.drawStickChain(chain);
-            }
-
-            for (const disc of system.getStandardDiscs()) {
-                this.drawDiscCenter(disc);
             }
 
             for (const chain of system.stickChains) {
@@ -165,7 +139,11 @@ class CanvasRenderer {
         this.ctx.arc(canvasPos.x, canvasPos.y, radiusPixels, 0, 2 * Math.PI);
         this.ctx.stroke();
 
-        this.drawDiscCenter({ x: centerX, y: centerY });
+        const center = this.worldToCanvas(centerX, centerY);
+        this.ctx.fillStyle = this.colors.discCenter;
+        this.ctx.beginPath();
+        this.ctx.arc(center.x, center.y, 5, 0, 2 * Math.PI);
+        this.ctx.fill();
     }
 
     drawPendingStick(startX, startY, endX, endY) {
@@ -190,10 +168,10 @@ class CanvasRenderer {
         const isScreen = disc.kind === 'screen';
 
         const fillStyle = isScreen
-            ? this.hexToRgbA(disc.color || '#6dd3c7', disc.transparencyMode ? 0.2 : 0.45)
+            ? this.hexToRgbA(disc.color || this.colors.screenDefaultFill, disc.transparencyMode ? 0.6 : 0.9)
             : this.colors.discFill;
         const strokeStyle = isScreen
-            ? (disc.color || '#6dd3c7')
+            ? (this.colors.screenStroke)
             : this.colors.discStroke;    
 
         this.ctx.fillStyle = fillStyle;
@@ -207,33 +185,34 @@ class CanvasRenderer {
         this.ctx.arc(canvasPos.x, canvasPos.y, radiusPixels, 0, 2 * Math.PI);
         this.ctx.stroke();
 
+
         if (!isScreen) {
+
+            const center = this.worldToCanvas(disc.x, disc.y);
+            this.ctx.fillStyle = this.colors.discCenter;
+            this.ctx.beginPath();
+            this.ctx.arc(center.x, center.y, 5, 0, 2 * Math.PI);
+            this.ctx.fill();
+
             const indicator = this.worldToCanvas(
                 disc.x + disc.radius * 0.7 * Math.cos(disc.angle),
                 disc.y + disc.radius * 0.7 * Math.sin(disc.angle)
             );
-            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.strokeStyle = this.colors.discRotationIndicator;
             this.ctx.lineWidth = 2;
             this.ctx.beginPath();
             this.ctx.moveTo(canvasPos.x, canvasPos.y);
             this.ctx.lineTo(indicator.x, indicator.y);
             this.ctx.stroke();
-        } else {
-            this.ctx.fillStyle = strokeStyle;
-            this.ctx.font = '11px sans-serif';
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText('SCREEN', canvasPos.x, canvasPos.y);
+        } else {   
+            const center = this.worldToCanvas(disc.x, disc.y);
+            this.ctx.fillStyle = this.colors.screenCenter;
+            this.ctx.beginPath();
+            this.ctx.arc(center.x, center.y, 5, 0, 2 * Math.PI);
+            this.ctx.fill();
         }
     }
 
-    drawDiscCenter(disc) {
-        const center = this.worldToCanvas(disc.x, disc.y);
-        this.ctx.fillStyle = this.colors.discCenter;
-        this.ctx.beginPath();
-        this.ctx.arc(center.x, center.y, 5, 0, 2 * Math.PI);
-        this.ctx.fill();
-    }
 
     drawStickChain(chain) {
         this.ctx.strokeStyle = this.colors.stickStroke;
@@ -334,13 +313,13 @@ class CanvasRenderer {
         const canvasPos = this.worldToCanvas(pencil.x, pencil.y);
         this.ctx.fillStyle = pencil.color;
         this.ctx.beginPath();
-        this.ctx.arc(canvasPos.x, canvasPos.y, this.colors.pencilRadius, 0, 2 * Math.PI);
+        this.ctx.arc(canvasPos.x, canvasPos.y, pencil.radius, 0, 2 * Math.PI);
         this.ctx.fill();
 
         this.ctx.strokeStyle = '#ffffff';
         this.ctx.lineWidth = 1;
         this.ctx.beginPath();
-        this.ctx.arc(canvasPos.x, canvasPos.y, this.colors.pencilRadius, 0, 2 * Math.PI);
+        this.ctx.arc(canvasPos.x, canvasPos.y, pencil.radius, 0, 2 * Math.PI);
         this.ctx.stroke();
     }
 
@@ -365,7 +344,7 @@ class CanvasRenderer {
             const pos2 = this.worldToCanvas(pos2World.x, pos2World.y);
 
             this.ctx.strokeStyle = this.hexToRgbA(t1.color, alpha);
-            this.ctx.lineWidth = 1.5;
+            this.ctx.lineWidth = pencil.trace_width;
             this.ctx.beginPath();
             this.ctx.moveTo(pos1.x, pos1.y);
             this.ctx.lineTo(pos2.x, pos2.y);

@@ -5,8 +5,11 @@ const SHARED_SOLVER_PARAMETERS = {
 };
 
 const SYSTEM_DEFAULTS = {
-    DISC_TORQUE: 100,
-    STICK_STIFFNESS: 100
+    DISC_TORQUE: 100,           // % Based
+    STICK_STIFFNESS: 100,       // % based
+    PENCIL_DEF_RADIUS: 4,       // px symbole radius
+    TRACE_DEF_WIDTH: 1.5,       // px trace line width   
+    TRACE_DEF_DURATION: 20,     // persistance in seconds 
 };
 
 const POSITION_SOLVER_PARAMETERS = {
@@ -18,12 +21,13 @@ const POSITION_SOLVER_PARAMETERS = {
 };
 
 const DEFAULT_COLORS = {
-            background: '#282828',
-            gridColor: '#333',
+            background: '#2f2f2f',
+            gridColor: '#4b4b4b',
             
-            discFill: '#3498db',
+            discFill: '#9bbbd1',
             discStroke: '#2980b9',
             discCenter: '#103a5c',
+            discRotationIndicator: '#ffffff',
             
             stickStroke: '#e74c3c',
             stickWidth: 3,
@@ -31,15 +35,22 @@ const DEFAULT_COLORS = {
             jointFill: '#ff4d4f',
             
             anchorFill: '#f1c40f',
-            anchorStroke: '#c89d08',
+            anchorStroke: '#b87e00',
             
-            pencilDefaultColor: '#6dd3c7',
-            pencilRadius: 4,
-
-            screenDefaultFill: '#080808',
-            screenStroke: '#080808',
-            screenCenter: '#080808',        
+            pencilDefaultColor: '#1de6e6',
+            
+            screenDefaultFill: '#1d1d1d',
+            screenStroke: '#626262',
+            screenCenter: '#3f3f3f',        
 };
+
+const VALIDATOR_DEFAULTS = {
+    MAX_ACTUATORS : 10,
+    MAX_CHAINS : 10,
+    MAX_SCREENS : 3,
+    MAX_ANCHORS : 10,
+}
+
 
 window.AppConfig = {
     SYSTEM_DEFAULTS,
@@ -50,6 +61,8 @@ window.AppConfig = {
     GENERAL_SIMULATION: {...SHARED_SOLVER_PARAMETERS },
 
     COLORS: {...DEFAULT_COLORS },
+
+    VALIDATORS: {...VALIDATOR_DEFAULTS},
 
     KINEMATIC_SOLVER: {
         MAX_ITERATIONS: 30,

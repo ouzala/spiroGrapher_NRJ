@@ -23,7 +23,7 @@ class System {
         return disc;
     }
 
-    addScreen(x, y, radius, rpm, color = '#6dd3c7', transparencyMode = false) {
+    addScreen(x, y, radius, rpm, color = AppConfig.COLORS.screenDefaultFill, transparencyMode = false) {
         const screen = new Screen(this.nextScreenId++, x, y, radius, rpm, color, transparencyMode);
         this.screens.push(screen);
         return screen;
@@ -42,7 +42,7 @@ class System {
             stickIndex,
             positionOnStick,
             color,
-            persistenceDuration
+            persistenceDuration, 
         );
         this.pencils.push(pencil);
         return pencil;
@@ -230,13 +230,19 @@ class System {
     validate() {
         const rotatingBodyCount = this.discs.length + this.screens.length;
         if (rotatingBodyCount === 0) {
-            return { valid: false, message: 'System needs at least 1 disc or screen' };
+            return { valid: false, message: 'System needs at least 1 actuator' };
         }
-        if (rotatingBodyCount > 4) {
-            return { valid: false, message: 'Too many discs/screens (max 4)' };
+        if (rotatingBodyCount > AppConfig.VALIDATORS.MAX_ACTUATORS) {
+            return { valid: false, message: `Too many disc actuators (max ${AppConfig.VALIDATORS.MAX_ACTUATORS} )` };
         }
-        if (this.stickChains.length === 0) {
-            return { valid: false, message: 'System needs at least 1 stick chain' };
+        if (this.stickChains.length > AppConfig.VALIDATORS.MAX_CHAINS) {
+            return { valid: false, message: `Too many segment chains (max ${AppConfig.VALIDATORS.MAX_CHAINS} )` };
+        }
+        if (this.screens.length > AppConfig.VALIDATORS.MAX_ANCHORS) {
+            return { valid: false, message: `Too many Anchors (max ${AppConfig.VALIDATORS.MAX_ANCHORS} )` };
+        }
+        if (this.stickChains.length > AppConfig.VALIDATORS.MAX_SCREENS) {
+            return { valid: false, message: `Too many Screens (max ${AppConfig.VALIDATORS.MAX_SCREENS} )` };
         }
 
         for (const chain of this.stickChains) {

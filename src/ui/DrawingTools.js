@@ -380,7 +380,7 @@ class DrawingTools {
         document.getElementById('input-disc-radius').value = this.pendingDiscRadius.toFixed(1);
         document.getElementById('input-disc-rpm').value = 60;
         this.setSliderValue('input-disc-torque', 'input-disc-torque-value', AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE);
-        document.getElementById('input-screen-color').value = '#6dd3c7';
+        document.getElementById('input-screen-color').value = AppConfig.COLORS.screenDefaultFill ;
         document.getElementById('input-screen-transparency').checked = false;
         this.syncDiscModalFields(isScreen);
         document.getElementById('btn-delete-disc').style.display = 'none';
@@ -726,8 +726,8 @@ class DrawingTools {
             hit.chainId,
             hit.stickIndex,
             hit.t * stick.restLength,
-            '#00ff00',
-            3
+            AppConfig.COLORS.pencilDefaultColor,
+            AppConfig.SYSTEM_DEFAULTS.TRACE_DEF_DURATION,
         );
         this.activateTool('pencil');
         this.refreshGeometry();

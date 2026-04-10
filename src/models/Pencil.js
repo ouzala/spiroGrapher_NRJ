@@ -9,6 +9,8 @@ class Pencil {
         this.positionOnStick = positionOnStick;  // distance from stick start (mm)
         this.color = color;                  // hex color string (#RRGGBB)
         this.persistenceDuration = persistenceDuration;  // how long traces persist (seconds)
+        this.radius = AppConfig.SYSTEM_DEFAULTS.PENCIL_DEF_RADIUS;          // Pencil Symbol Radius
+        this.trace_width = AppConfig.SYSTEM_DEFAULTS.TRACE_DEF_WIDTH;     // Pencil Symbol Radius
         
         this.x = 0;                          // current x position
         this.y = 0;                          // current y position
