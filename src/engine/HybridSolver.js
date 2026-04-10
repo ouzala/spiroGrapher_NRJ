@@ -40,18 +40,25 @@ class HybridSolver {
             return { success: false, error: 'System needs at least 1 stick before playback.', warnings: [] };
         }
 
-        const dtMs = Number.isFinite(options.dtMs) ? options.dtMs : 0;
-        const stepSeconds = Math.max(Math.abs(dtMs) / 1000, 1 / 120);
-        const substeps = Math.max(1, this.substeps);
-        const subDt = stepSeconds / substeps;
+        const hasDynamicStep = Number.isFinite(options.dtMs) && options.dtMs !== 0;
+        const dtMs = hasDynamicStep ? options.dtMs : 0;
+        const stepSeconds = hasDynamicStep ? Math.max(Math.abs(dtMs) / 1000, 1 / 120) : 0;
+        const substeps = hasDynamicStep ? Math.max(1, this.substeps) : 1;
+        const subDt = hasDynamicStep ? (stepSeconds / substeps) : (1 / 120);
 
         this.syncDynamicState(topology);
 
         for (let substep = 0; substep < substeps; substep++) {
-            this.advanceSoftDiscs(topology, subDt);
-            this.integrateNodes(topology, subDt);
+            if (hasDynamicStep) {
+                this.advanceSoftDiscs(topology, subDt);
+                this.integrateNodes(topology, subDt);
+            } else {
+                this.refreshFixedNodes(topology);
+            }
             this.projectConstraints(topology, subDt);
-            this.updateVelocities(topology, subDt);
+            if (hasDynamicStep) {
+                this.updateVelocities(topology, subDt);
+            }
         }
 
         this.applySolvedState(topology);
@@ -84,6 +91,7 @@ class HybridSolver {
             softPositionConstraints: [],
             nodeCoincidenceConstraints: [],
             bendingConstraints: [],
+            straightnessConstraints: [],
             softDiscs: [],
             hostAttachmentNodes: new Map()
         };
@@ -153,9 +161,9 @@ class HybridSolver {
                 });
 
                 for (let i = 0; i < nodeRefs.length - 2; i++) {
-                    const bendKey = `bend:stick:${stick.id}:${i}`;
-                    topology.bendingConstraints.push(this.createBendingConstraint(
-                        bendKey,
+                    const straightKey = `straight:stick:${stick.id}:${i}`;
+                    topology.straightnessConstraints.push(this.createBendingConstraint(
+                        straightKey,
                         nodeRefs[i],
                         nodeRefs[i + 1],
                         nodeRefs[i + 2]
@@ -366,6 +374,19 @@ class HybridSolver {
         }
     }
 
+    refreshFixedNodes(topology) {
+        for (const node of topology.nodes) {
+            if (!node.fixedAttachment) continue;
+            const pos = this.getAttachmentPosition(node.fixedAttachment);
+            node.prevX = pos.x;
+            node.prevY = pos.y;
+            node.x = pos.x;
+            node.y = pos.y;
+            node.vx = 0;
+            node.vy = 0;
+        }
+    }
+
     projectConstraints(topology, dt) {
         const dt2 = dt * dt;
         for (let iter = 0; iter < this.maxIterations; iter++) {
@@ -420,6 +441,17 @@ class HybridSolver {
                     dt2
                 );
             }
+
+            for (const straightness of topology.straightnessConstraints) {
+                this.solveLengthConstraint(
+                    `straightLength:${straightness.key}`,
+                    straightness.nodeA,
+                    straightness.nodeB,
+                    straightness.restDistance,
+                    0,
+                    dt2
+                );
+            }
         }
     }
 
@@ -455,7 +487,8 @@ class HybridSolver {
     }
 
     solveAxisConstraint(key, nodeA, nodeB, targetValue, axis, compliance, dt2) {
-        const lambda = this.constraintLambdaState.get(key) || 0;
+        const persistent = compliance > 0;
+        const lambda = persistent ? (this.constraintLambdaState.get(key) || 0) : 0;
         const alpha = compliance <= 0 ? 0 : compliance / Math.max(dt2, 1e-9);
         const valueA = axis === 'x' ? nodeA.x : nodeA.y;
         const valueB = nodeB ? (axis === 'x' ? nodeB.x : nodeB.y) : targetValue;
@@ -473,7 +506,11 @@ class HybridSolver {
             nodeA.y += invMassA * deltaLambda;
             if (nodeB) nodeB.y -= invMassB * deltaLambda;
         }
-        this.constraintLambdaState.set(key, lambda + deltaLambda);
+        if (persistent) {
+            this.constraintLambdaState.set(key, lambda + deltaLambda);
+        } else {
+            this.constraintLambdaState.delete(key);
+        }
     }
 
     solveLengthConstraint(key, nodeA, nodeB, restLength, compliance, dt2) {
@@ -488,17 +525,22 @@ class HybridSolver {
         const denominator = invMassA + invMassB + alpha;
         if (denominator <= 1e-9) return;
 
-        const lambda = this.constraintLambdaState.get(key) || 0;
+        const persistent = compliance > 0;
+        const lambda = persistent ? (this.constraintLambdaState.get(key) || 0) : 0;
         const constraint = distance - restLength;
         const deltaLambda = (-constraint - alpha * lambda) / denominator;
         const nx = dx / distance;
         const ny = dy / distance;
 
-        nodeA.x += invMassA * nx * deltaLambda;
-        nodeA.y += invMassA * ny * deltaLambda;
-        nodeB.x -= invMassB * nx * deltaLambda;
-        nodeB.y -= invMassB * ny * deltaLambda;
-        this.constraintLambdaState.set(key, lambda + deltaLambda);
+        nodeA.x -= invMassA * nx * deltaLambda;
+        nodeA.y -= invMassA * ny * deltaLambda;
+        nodeB.x += invMassB * nx * deltaLambda;
+        nodeB.y += invMassB * ny * deltaLambda;
+        if (persistent) {
+            this.constraintLambdaState.set(key, lambda + deltaLambda);
+        } else {
+            this.constraintLambdaState.delete(key);
+        }
     }
 
     getSegmentCompliance(segment) {
@@ -554,6 +596,18 @@ class HybridSolver {
                 });
             }
             this.lastSolvedDiscAngles.set(disc.id, disc.angle);
+        }
+
+        const activePersistentConstraintKeys = new Set();
+        for (const segment of topology.segments) {
+            if (!this.isRigidStick(segment.originalStick)) {
+                activePersistentConstraintKeys.add(segment.lambdaKey);
+            }
+        }
+        for (const key of [...this.constraintLambdaState.keys()]) {
+            if (!activePersistentConstraintKeys.has(key)) {
+                this.constraintLambdaState.delete(key);
+            }
         }
 
         this.updatePencilPositions();

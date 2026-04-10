@@ -8,7 +8,8 @@ const SHARED_SOLVER_PARAMETERS = {
 
 const SYSTEM_DEFAULTS = {
     DISC_DEF_RPM: 45,           // default disc rpm
-    DISC_DEF_TORQUE: 100,           // default value, % Based
+    SCREEN_DEF_RPM: 0,          // default screen rpm
+    DISC_DEF_TORQUE: 100,       // default value, % Based
     STICK_STIFFNESS: 100,       // default value, % Based
     PENCIL_DEF_RADIUS: 4,       // px symbole radius
     TRACE_DEF_WIDTH: 1.5,       // px trace line width   

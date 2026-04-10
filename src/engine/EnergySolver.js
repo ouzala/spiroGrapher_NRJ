@@ -347,14 +347,14 @@ class EnergySolver {
     }
 
     tryBacktrackingStep(currentVector, proposedVector, topology, currentNorm) {
-        const scales = [1, 0.5, 0.25, 0.1];
+        const scales = [1, 0.5, 0.25, 0.1, 0.05, 0.02, 0.01];
 
         for (const scale of scales) {
             const trial = currentVector.map((value, index) => value + (proposedVector[index] - value) * scale);
             this.applyNodeVector(topology, trial);
             const residuals = this.computeResiduals(topology);
             const norm = this.computeResidualNorm(residuals);
-            if (norm < currentNorm) {
+            if (norm <= currentNorm + 1e-9) {
                 return { vector: trial, norm };
             }
         }
@@ -380,17 +380,8 @@ class EnergySolver {
     }
 
     restoreCommittedState(topology) {
-        for (const node of topology.variableNodes) {
-            const stored = this.lastSolvedNodePositions.get(node.key);
-            if (stored) {
-                node.x = stored.x;
-                node.y = stored.y;
-            }
-        }
-        this.applyNodeVector(
-            topology,
-            topology.variableNodes.flatMap(node => [node.x, node.y])
-        );
+        const restoredVector = this.initializeNodeVector(topology);
+        this.applyNodeVector(topology, restoredVector);
         this.updatePencilPositions();
     }
 

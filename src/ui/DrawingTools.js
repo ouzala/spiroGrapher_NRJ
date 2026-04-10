@@ -416,7 +416,11 @@ class DrawingTools {
         const isScreen = this.activeTool === 'screen';
         document.getElementById('modal-disc-title').textContent = isScreen ? 'Set Screen Properties' : 'Set Disc RPM';
         document.getElementById('input-disc-radius').value = this.pendingDiscRadius.toFixed(1);
-        document.getElementById('input-disc-rpm').value = AppConfig.SYSTEM_DEFAULTS.DISC_DEF_RPM;
+        if (isScreen){
+            document.getElementById('input-disc-rpm').value = AppConfig.SYSTEM_DEFAULTS.SCREEN_DEF_RPM;
+         } else { 
+            document.getElementById('input-disc-rpm').value = AppConfig.SYSTEM_DEFAULTS.DISC_DEF_RPM;
+         }  
         this.setSliderValue('input-disc-torque', 'input-disc-torque-value', AppConfig.SYSTEM_DEFAULTS.DISC_DEF_TORQUE);
         document.getElementById('input-screen-color').value = AppConfig.COLORS.screenDefaultFill ;
         document.getElementById('input-screen-transparency').checked = false;
@@ -446,7 +450,8 @@ class DrawingTools {
 
     confirmDisc() {
         const radius = Math.max(5, parseFloat(document.getElementById('input-disc-radius').value) || 30);
-        const rpm = AppConfig.SYSTEM_DEFAULTS.DISC_DEF_RPM || 0;
+        const discRpm = AppConfig.SYSTEM_DEFAULTS.DISC_DEF_RPM || 0;
+        const screenRpm = AppConfig.SYSTEM_DEFAULTS.SCREEN_DEF_RPM || 0;
         const torque = this.parseTorqueInput(document.getElementById('input-disc-torque').value);
         const screenColor = document.getElementById('input-screen-color').value || '#6dd3c7';
         const transparencyMode = document.getElementById('input-screen-transparency').checked;
@@ -455,11 +460,11 @@ class DrawingTools {
         if (this.discModalMode === 'add' && this.pendingDiscStart) {
             const centerAttachment = this.resolveRotatingBodyCenterAttachment(this.pendingDiscStart);
             if (this.activeTool === 'screen') {
-                const screen = this.app.system.addScreen(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, screenColor, transparencyMode);
+                const screen = this.app.system.addScreen(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, screenRpm, screenColor, transparencyMode);
                 screen.centerAttachment = centerAttachment;
                 updatedLabel = 'Screen';
             } else {
-                const disc = this.app.system.addDisc(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, torque);
+                const disc = this.app.system.addDisc(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, discRpm, torque);
                 disc.centerAttachment = centerAttachment;
             }
             this.pendingDiscStart = null;
@@ -948,7 +953,7 @@ class DrawingTools {
         this.app.system.syncAttachedRotatingBodies();
         const validation = this.app.system.validate();
         if (validation.valid) {
-            const result = this.app.solver.solve();
+            const result = this.app.solver.solve({ dtMs: 0, timeScale: this.app.timeScale });
             this.app.lastSolveResult = result;
             if (!result.success) {
                 this.app.solver.updatePencilPositions();
