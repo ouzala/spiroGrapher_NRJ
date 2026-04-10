@@ -12,8 +12,9 @@ const SYSTEM_DEFAULTS = {
     PENCIL_DEF_RADIUS: 4,       // px symbole radius
     TRACE_DEF_WIDTH: 1.5,       // px trace line width   
     TRACE_DEF_DURATION: 20,     // persistance in seconds
-    ZOOM : 1,
-    VIEW_CENTER: {x:0, y:0}, 
+    ZOOM : 1,                   // Starting zoom level
+    VIEW_CENTER: {x:0, y:0},    // Canvas centering
+    DISC_ALPHA : 0.8,           // Default disc rgbA transparency 
 };
 
 const POSITION_SOLVER_PARAMETERS = {

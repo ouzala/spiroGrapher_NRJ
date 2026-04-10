@@ -176,13 +176,14 @@ class CanvasRenderer {
     }
 
     drawDisc(disc) {
+        // ALSO DRAWS SCREENS
         const canvasPos = this.worldToCanvas(disc.x, disc.y);
         const radiusPixels = disc.radius * this.scale * this.zoom;
         const isScreen = disc.kind === 'screen';
 
         const fillStyle = isScreen
             ? this.hexToRgbA(disc.color || this.colors.screenDefaultFill, disc.transparencyMode ? 0.6 : 0.9)
-            : this.colors.discFill;
+            : this.hexToRgbA(this.colors.discFill, AppConfig.SYSTEM_DEFAULTS.DISC_ALPHA);
         const strokeStyle = isScreen
             ? (this.colors.screenStroke)
             : this.colors.discStroke;    

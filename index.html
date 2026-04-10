@@ -70,6 +70,177 @@
             margin-bottom: 16px;
         }
 
+        .building-tool-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .icon-tool-button {
+            min-height: 86px;
+            margin: 0;
+            padding: 10px 8px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background:
+                radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 55%),
+                linear-gradient(180deg, #404046 0%, #2f3035 100%);
+            border: 1px solid #5f6368;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 16px rgba(0, 0, 0, 0.18);
+        }
+
+        .icon-tool-button:hover {
+            background:
+                radial-gradient(circle at top, rgba(255, 255, 255, 0.14), transparent 58%),
+                linear-gradient(180deg, #4d4f57 0%, #363840 100%);
+            border-color: #4db8ff;
+            transform: translateY(-1px);
+        }
+
+        .icon-tool-button.active {
+            background:
+                radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 58%),
+                linear-gradient(180deg, #0b8cd8 0%, #0063a6 100%);
+            border-color: #87d1ff;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 10px 18px rgba(0, 76, 128, 0.35);
+        }
+
+        .icon-tool-button .tool-icon {
+            width: 30px;
+            height: 30px;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #f5f7fa;
+        }
+
+        .icon-tool-button .tool-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: #edf2f7;
+        }
+
+        .tool-icon.icon-disc::before,
+        .tool-icon.icon-screen::before,
+        .tool-icon.icon-anchor::before,
+        .tool-icon.icon-pencil::before {
+            content: "";
+            position: absolute;
+        }
+
+        .tool-icon.icon-disc::before {
+            width: 24px;
+            height: 24px;
+            border: 3px solid currentColor;
+            border-radius: 50%;
+            box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.18);
+        }
+
+        .tool-icon.icon-disc::after {
+            content: "";
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.12);
+        }
+
+        .tool-icon.icon-screen::before {
+            width: 26px;
+            height: 18px;
+            border: 2px solid currentColor;
+            border-radius: 4px;
+            top: 3px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+        }
+
+        .tool-icon.icon-screen::after {
+            content: "";
+            position: absolute;
+            width: 14px;
+            height: 2px;
+            background: currentColor;
+            border-radius: 999px;
+            bottom: 3px;
+            box-shadow: 0 -4px 0 -1px rgba(255, 255, 255, 0.2);
+        }
+
+        .tool-icon.icon-stick::before,
+        .tool-icon.icon-stick::after {
+            content: "";
+            position: absolute;
+            border-radius: 999px;
+        }
+
+        .tool-icon.icon-stick::before {
+            width: 24px;
+            height: 4px;
+            background: currentColor;
+            transform: rotate(-28deg);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+        }
+
+        .tool-icon.icon-stick::after {
+            width: 8px;
+            height: 8px;
+            background: currentColor;
+            left: 2px;
+            top: 4px;
+            box-shadow: 17px 12px 0 0 currentColor;
+        }
+
+        .tool-icon.icon-anchor::before {
+            width: 4px;
+            height: 22px;
+            background: currentColor;
+            border-radius: 999px;
+            top: 2px;
+        }
+
+        .tool-icon.icon-anchor::after {
+            content: "";
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border: 3px solid currentColor;
+            border-top-color: transparent;
+            border-left-color: transparent;
+            border-right-color: transparent;
+            border-radius: 50%;
+            bottom: 1px;
+            box-shadow:
+                -8px -1px 0 -5px currentColor,
+                8px -1px 0 -5px currentColor,
+                0 -13px 0 -6px currentColor;
+        }
+
+        .tool-icon.icon-pencil::before {
+            width: 22px;
+            height: 7px;
+            background: currentColor;
+            border-radius: 999px;
+            transform: rotate(-42deg);
+            box-shadow: inset -5px 0 0 rgba(20, 20, 20, 0.28);
+        }
+
+        .tool-icon.icon-pencil::after {
+            content: "";
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 7px solid currentColor;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+            transform: rotate(-42deg) translate(10px, -1px);
+            transform-origin: center;
+        }
+
         .solver-toggle-button {
             width: 100%;
             text-align: left;
@@ -346,12 +517,27 @@
             </div>
 
             <h3>Building Tools</h3>
-            <div class="tool-group">
-                <button class="tool-button" id="tool-disc">+ Add Disc</button>
-                <button class="tool-button" id="tool-screen">+ Add Screen</button>
-                <button class="tool-button" id="tool-stick">+ Add Stick</button>
-                <button class="tool-button" id="tool-anchor">+ Add Anchor</button>
-                <button class="tool-button" id="tool-pencil">+ Add Pencil</button>
+            <div class="tool-group building-tool-grid">
+                <button class="tool-button icon-tool-button" id="tool-disc" title="Add Disc" aria-label="Add Disc">
+                    <span class="tool-icon icon-disc" aria-hidden="true"></span>
+                    <span class="tool-label">Disc</span>
+                </button>
+                <button class="tool-button icon-tool-button" id="tool-screen" title="Add Screen" aria-label="Add Screen">
+                    <span class="tool-icon icon-screen" aria-hidden="true"></span>
+                    <span class="tool-label">Screen</span>
+                </button>
+                <button class="tool-button icon-tool-button" id="tool-stick" title="Add Stick" aria-label="Add Stick">
+                    <span class="tool-icon icon-stick" aria-hidden="true"></span>
+                    <span class="tool-label">Stick</span>
+                </button>
+                <button class="tool-button icon-tool-button" id="tool-anchor" title="Add Anchor" aria-label="Add Anchor">
+                    <span class="tool-icon icon-anchor" aria-hidden="true"></span>
+                    <span class="tool-label">Anchor</span>
+                </button>
+                <button class="tool-button icon-tool-button" id="tool-pencil" title="Add Pencil" aria-label="Add Pencil">
+                    <span class="tool-icon icon-pencil" aria-hidden="true"></span>
+                    <span class="tool-label">Pencil</span>
+                </button>
             </div>
 
             <h3>System</h3>
