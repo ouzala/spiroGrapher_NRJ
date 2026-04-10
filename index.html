@@ -348,6 +348,7 @@
             <h3>Building Tools</h3>
             <div class="tool-group">
                 <button class="tool-button" id="tool-disc">+ Add Disc</button>
+                <button class="tool-button" id="tool-screen">+ Add Screen</button>
                 <button class="tool-button" id="tool-stick">+ Add Stick</button>
                 <button class="tool-button" id="tool-anchor">+ Add Anchor</button>
                 <button class="tool-button" id="tool-pencil">+ Add Pencil</button>
@@ -379,6 +380,7 @@
 
             <div class="status-display">
                 <div><span class="status-label">Discs:</span> <span id="status-discs">0</span></div>
+                <div><span class="status-label">Screens:</span> <span id="status-screens">0</span></div>
                 <div><span class="status-label">Chains:</span> <span id="status-chains">0</span></div>
                 <div><span class="status-label">Pencils:</span> <span id="status-pencils">0</span></div>
                 <div style="margin-top: 8px; border-top: 1px solid #3e3e42; padding-top: 8px;">
@@ -421,8 +423,21 @@
             <input type="number" class="modal-input" id="input-disc-radius" min="5" max="100" value="30">
             <label>RPM:</label>
             <input type="number" class="modal-input" id="input-disc-rpm" min="1" max="600" value="60">
-            <label for="input-disc-torque">Torque: <span id="input-disc-torque-value">100%</span></label>
-            <input type="range" class="modal-input" id="input-disc-torque" min="0" max="100" step="1" value="100">
+            <div id="disc-torque-group">
+                <label for="input-disc-torque">Torque: <span id="input-disc-torque-value">100%</span></label>
+                <input type="range" class="modal-input" id="input-disc-torque" min="0" max="100" step="1" value="100">
+            </div>
+            <div id="screen-settings-group" style="display: none;">
+                <label>Screen Color:</label>
+                <input type="color" class="modal-input" id="input-screen-color" value="#6dd3c7">
+                <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                    <input type="checkbox" id="input-screen-transparency">
+                    <span>Transparency mode</span>
+                </label>
+                <p id="screen-transparency-note" style="font-size: 12px; color: #999; line-height: 1.5; margin-top: 8px;">
+                    Transparency mode OFF: sticks and anchors can attach to this screen like a disc.
+                </p>
+            </div>
             <div class="modal-buttons">
                 <button id="btn-delete-disc" style="display: none;">Delete</button>
                 <button id="btn-cancel-disc">Cancel</button>
@@ -468,20 +483,21 @@
         window.__APP_BUILD_STAMP__ = '__BUILD_STAMP__';
     </script>
     <script src="src/utils/math.js?v=20260408b"></script>
-    <script src="src/models/Disc.js?v=20260408b"></script>
+    <script src="src/models/Disc.js?v=20260410a"></script>
+    <script src="src/models/Screen.js?v=20260410a"></script>
     <script src="src/models/Stick.js?v=20260409c"></script>
     <script src="src/models/StickChain.js?v=20260408b"></script>
-    <script src="src/models/Pencil.js?v=20260408b"></script>
+    <script src="src/models/Pencil.js?v=20260410a"></script>
     <script src="src/models/Anchor.js?v=20260408c"></script>
-    <script src="src/models/System.js?v=20260408c"></script>
+    <script src="src/models/System.js?v=20260410a"></script>
     <script src="src/config.js?v=20260409b"></script>
     <script src="https://cdn.jsdelivr.net/npm/ml-matrix@6.12.1/matrix.umd.js"></script>
     <script src="src/engine/KinematicSolver.js?v=20260408c"></script>
     <script src="src/engine/EnergySolver.js?v=20260409e"></script>
     <script src="src/engine/HybridSolver.js?v=20260409c"></script>
-    <script src="src/renderer/CanvasRenderer.js?v=20260408c"></script>
-    <script src="src/ui/DrawingTools.js?v=20260409d"></script>
-    <script src="src/ui/PlaybackControls.js?v=20260408b"></script>
-    <script src="src/app.js?v=20260408c"></script>
+    <script src="src/renderer/CanvasRenderer.js?v=20260410a"></script>
+    <script src="src/ui/DrawingTools.js?v=20260410a"></script>
+    <script src="src/ui/PlaybackControls.js?v=20260410a"></script>
+    <script src="src/app.js?v=20260410a"></script>
 </body>
 </html>

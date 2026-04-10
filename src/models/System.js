@@ -21,6 +21,12 @@ class System {
         return disc;
     }
 
+    addScreen(x, y, radius, rpm, color = '#6dd3c7', transparencyMode = false) {
+        const screen = new Screen(this.nextDiscId++, x, y, radius, rpm, color, transparencyMode);
+        this.discs.push(screen);
+        return screen;
+    }
+
     addStickChain() {
         const chain = new StickChain(this.nextChainId++);
         this.stickChains.push(chain);
@@ -48,6 +54,14 @@ class System {
 
     getDisc(id) {
         return this.discs.find(disc => disc.id === id) || null;
+    }
+
+    getScreens() {
+        return this.discs.filter(disc => disc.isScreen());
+    }
+
+    getStandardDiscs() {
+        return this.discs.filter(disc => !disc.isScreen());
     }
 
     getStickChain(id) {
@@ -93,7 +107,8 @@ class System {
     }
 
     analyzeDiscDrives() {
-        const finiteTorqueDiscs = this.discs.filter(disc => !disc.isHardDriven());
+        const standardDiscs = this.getStandardDiscs();
+        const finiteTorqueDiscs = standardDiscs.filter(disc => !disc.isHardDriven());
         const warnings = [];
 
         if (finiteTorqueDiscs.length > 0) {
@@ -102,9 +117,10 @@ class System {
         }
 
         return {
-            hardDrivenCount: this.discs.length - finiteTorqueDiscs.length,
+            hardDrivenCount: standardDiscs.length - finiteTorqueDiscs.length,
             torqueLimitedCount: finiteTorqueDiscs.length,
             finiteTorqueDiscIds: finiteTorqueDiscs.map(disc => disc.id),
+            screenCount: this.getScreens().length,
             warnings
         };
     }
@@ -191,10 +207,10 @@ class System {
 
     validate() {
         if (this.discs.length === 0) {
-            return { valid: false, message: 'System needs at least 1 disc' };
+            return { valid: false, message: 'System needs at least 1 disc or screen' };
         }
         if (this.discs.length > 4) {
-            return { valid: false, message: 'Too many discs (max 4)' };
+            return { valid: false, message: 'Too many discs/screens (max 4)' };
         }
         if (this.stickChains.length === 0) {
             return { valid: false, message: 'System needs at least 1 stick chain' };
@@ -277,7 +293,7 @@ class System {
         const validation = this.validate();
         const driveAnalysis = this.analyzeDiscDrives();
         const driveNote = driveAnalysis.warnings.length > 0 ? ` ${driveAnalysis.warnings[0]}` : '';
-        return `Discs: ${this.discs.length}, Chains: ${this.stickChains.length}, Anchors: ${this.anchors.length}, Pencils: ${this.pencils.length}. ${validation.message}${driveNote}`;
+        return `Discs: ${this.getStandardDiscs().length}, Screens: ${this.getScreens().length}, Chains: ${this.stickChains.length}, Anchors: ${this.anchors.length}, Pencils: ${this.pencils.length}. ${validation.message}${driveNote}`;
     }
 
     removeDisc(discId) {
@@ -340,6 +356,15 @@ class System {
 
     removePencil(pencilId) {
         this.pencils = this.pencils.filter(pencil => pencil.id !== pencilId);
+    }
+
+    getScreenAtPoint(point) {
+        for (let i = this.discs.length - 1; i >= 0; i--) {
+            const disc = this.discs[i];
+            if (!disc.isScreen() || !disc.containsWorldPoint(point)) continue;
+            return disc;
+        }
+        return null;
     }
 
     clone() {

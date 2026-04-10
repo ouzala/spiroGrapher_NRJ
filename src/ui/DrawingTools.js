@@ -19,6 +19,7 @@ class DrawingTools {
 
     setupEventListeners() {
         document.getElementById('tool-disc').addEventListener('click', () => this.activateTool('disc'));
+        document.getElementById('tool-screen').addEventListener('click', () => this.activateTool('screen'));
         document.getElementById('tool-stick').addEventListener('click', () => this.activateTool('stick'));
         document.getElementById('tool-anchor').addEventListener('click', () => this.activateTool('anchor'));
         document.getElementById('tool-pencil').addEventListener('click', () => this.activateTool('pencil'));
@@ -31,6 +32,13 @@ class DrawingTools {
         document.getElementById('btn-delete-disc').addEventListener('click', () => this.deleteDisc());
         document.getElementById('input-disc-torque').addEventListener('input', event => {
             this.updateSliderValueLabel('input-disc-torque-value', event.target.value);
+        });
+        document.getElementById('input-screen-transparency').addEventListener('change', event => {
+            const note = document.getElementById('screen-transparency-note');
+            if (!note) return;
+            note.textContent = event.target.checked
+                ? 'Transparency mode ON: sticks and anchors cannot attach to this screen.'
+                : 'Transparency mode OFF: sticks and anchors can attach to this screen like a disc.';
         });
 
         document.getElementById('btn-confirm-pencil').addEventListener('click', () => this.confirmPencil());
@@ -75,6 +83,7 @@ class DrawingTools {
         this.cancelPendingConstruction();
         this.activeTool = toolName;
         document.getElementById('tool-disc').classList.toggle('active', this.activeTool === 'disc');
+        document.getElementById('tool-screen').classList.toggle('active', this.activeTool === 'screen');
         document.getElementById('tool-stick').classList.toggle('active', this.activeTool === 'stick');
         document.getElementById('tool-anchor').classList.toggle('active', this.activeTool === 'anchor');
         document.getElementById('tool-pencil').classList.toggle('active', this.activeTool === 'pencil');
@@ -86,6 +95,7 @@ class DrawingTools {
         this.cancelPendingConstruction();
         this.activeTool = null;
         document.getElementById('tool-disc').classList.remove('active');
+        document.getElementById('tool-screen').classList.remove('active');
         document.getElementById('tool-stick').classList.remove('active');
         document.getElementById('tool-anchor').classList.remove('active');
         document.getElementById('tool-pencil').classList.remove('active');
@@ -121,7 +131,7 @@ class DrawingTools {
         const { canvasX, canvasY, world } = this.getCanvasEventData(event);
         const hit = this.app.renderer.hitTest(canvasX, canvasY, this.app.system, 10);
 
-        if (this.activeTool === 'disc' && event.button === 0) {
+        if ((this.activeTool === 'disc' || this.activeTool === 'screen') && event.button === 0) {
             this.pauseForEditing();
             this.startDiscPlacement(world);
             return;
@@ -241,7 +251,7 @@ class DrawingTools {
             return;
         }
 
-        if (this.activeTool === 'disc' && this.pendingDiscStart) {
+        if ((this.activeTool === 'disc' || this.activeTool === 'screen') && this.pendingDiscStart) {
             this.pendingDiscRadius = Math.max(0, MathUtils.distance(
                 this.pendingDiscStart.x,
                 this.pendingDiscStart.y,
@@ -337,10 +347,14 @@ class DrawingTools {
     openDiscModalForAdd() {
         this.discModalMode = 'add';
         this.editingDiscId = null;
-        document.getElementById('modal-disc-title').textContent = 'Set Disc RPM';
+        const isScreen = this.activeTool === 'screen';
+        document.getElementById('modal-disc-title').textContent = isScreen ? 'Set Screen Properties' : 'Set Disc RPM';
         document.getElementById('input-disc-radius').value = this.pendingDiscRadius.toFixed(1);
         document.getElementById('input-disc-rpm').value = 60;
         this.setSliderValue('input-disc-torque', 'input-disc-torque-value', AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE);
+        document.getElementById('input-screen-color').value = '#6dd3c7';
+        document.getElementById('input-screen-transparency').checked = false;
+        this.syncDiscModalFields(isScreen);
         document.getElementById('btn-delete-disc').style.display = 'none';
         this.openModal('modal-disc');
     }
@@ -352,10 +366,14 @@ class DrawingTools {
         this.pauseForEditing();
         this.discModalMode = 'edit';
         this.editingDiscId = discId;
-        document.getElementById('modal-disc-title').textContent = `Edit Disc ${disc.id}`;
+        const isScreen = disc.isScreen();
+        document.getElementById('modal-disc-title').textContent = isScreen ? `Edit Screen ${disc.id}` : `Edit Disc ${disc.id}`;
         document.getElementById('input-disc-radius').value = disc.radius;
         document.getElementById('input-disc-rpm').value = disc.targetRpm;
         this.setSliderValue('input-disc-torque', 'input-disc-torque-value', disc.torque);
+        document.getElementById('input-screen-color').value = disc.color || '#6dd3c7';
+        document.getElementById('input-screen-transparency').checked = Boolean(disc.transparencyMode);
+        this.syncDiscModalFields(isScreen);
         document.getElementById('btn-delete-disc').style.display = 'inline-flex';
         this.openModal('modal-disc');
     }
@@ -364,18 +382,32 @@ class DrawingTools {
         const radius = Math.max(5, parseFloat(document.getElementById('input-disc-radius').value) || 30);
         const rpm = parseFloat(document.getElementById('input-disc-rpm').value) || 60;
         const torque = this.parseTorqueInput(document.getElementById('input-disc-torque').value);
+        const screenColor = document.getElementById('input-screen-color').value || '#6dd3c7';
+        const transparencyMode = document.getElementById('input-screen-transparency').checked;
+        let updatedLabel = 'Disc';
 
         if (this.discModalMode === 'add' && this.pendingDiscStart) {
-            this.app.system.addDisc(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, torque);
+            if (this.activeTool === 'screen') {
+                this.app.system.addScreen(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, screenColor, transparencyMode);
+                updatedLabel = 'Screen';
+            } else {
+                this.app.system.addDisc(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, torque);
+            }
             this.pendingDiscStart = null;
             this.pendingDiscRadius = 0;
-            this.activateTool('disc');
+            this.activateTool(this.activeTool === 'screen' ? 'screen' : 'disc');
         } else if (this.discModalMode === 'edit' && this.editingDiscId !== null) {
             const disc = this.app.system.getDisc(this.editingDiscId);
             if (disc) {
+                updatedLabel = disc.isScreen() ? 'Screen' : 'Disc';
                 disc.radius = radius;
                 disc.setRpm(rpm);
-                disc.setTorque(torque);
+                if (disc.isScreen()) {
+                    disc.color = screenColor;
+                    disc.transparencyMode = transparencyMode;
+                } else {
+                    disc.setTorque(torque);
+                }
                 if (!this.app.isPlaying) {
                     disc.restRpm = rpm;
                     disc.rampStartRpm = rpm;
@@ -386,7 +418,7 @@ class DrawingTools {
 
         this.closeDiscModal();
         this.refreshGeometry();
-        this.updateStatus('Disc updated.');
+        this.updateStatus(`${updatedLabel} updated.`);
     }
 
     closeDiscModal() {
@@ -402,10 +434,12 @@ class DrawingTools {
 
     deleteDisc() {
         if (this.editingDiscId === null) return;
+        const disc = this.app.system.getDisc(this.editingDiscId);
+        const deletedLabel = disc?.isScreen() ? 'Screen' : 'Disc';
         this.app.system.removeDisc(this.editingDiscId);
         this.closeDiscModal();
         this.refreshGeometry();
-        this.updateStatus('Disc deleted.');
+        this.updateStatus(`${deletedLabel} deleted.`);
     }
 
     parseTorqueInput(rawValue) {
@@ -424,6 +458,25 @@ class DrawingTools {
 
     formatTorqueValue(torque) {
         return Number.isFinite(torque) ? torque : 'infinite';
+    }
+
+    syncDiscModalFields(isScreen) {
+        const torqueGroup = document.getElementById('disc-torque-group');
+        const screenGroup = document.getElementById('screen-settings-group');
+        if (torqueGroup) {
+            torqueGroup.style.display = isScreen ? 'none' : 'block';
+        }
+        if (screenGroup) {
+            screenGroup.style.display = isScreen ? 'block' : 'none';
+        }
+
+        const note = document.getElementById('screen-transparency-note');
+        if (note) {
+            const checked = document.getElementById('input-screen-transparency').checked;
+            note.textContent = checked
+                ? 'Transparency mode ON: sticks and anchors cannot attach to this screen.'
+                : 'Transparency mode OFF: sticks and anchors can attach to this screen like a disc.';
+        }
     }
 
     setSliderValue(inputId, labelId, rawValue) {
@@ -445,12 +498,16 @@ class DrawingTools {
     handleStickToolClick(world, canvasX, canvasY, hit) {
         if (!this.pendingStick) {
             if (!hit || (hit.type !== 'disc' && hit.type !== 'disc-center')) {
-                this.updateStatus('Click on a disc to place the stick start.');
+                this.updateStatus('Click on a disc or screen to place the stick start.');
                 return;
             }
 
             const disc = this.app.system.getDisc(hit.id);
             if (!disc) return;
+            if (!disc.canAcceptAttachments()) {
+                this.updateStatus(`Screen ${disc.id} is in transparency mode and cannot accept attachments.`);
+                return;
+            }
 
             this.pendingStick = {
                 mode: 'new',
@@ -587,6 +644,7 @@ class DrawingTools {
         this.activeTool = 'stick';
         document.getElementById('tool-stick').classList.add('active');
         document.getElementById('tool-disc').classList.remove('active');
+        document.getElementById('tool-screen').classList.remove('active');
         document.getElementById('tool-anchor').classList.remove('active');
         document.getElementById('tool-pencil').classList.remove('active');
         this.pendingStick = {
@@ -718,6 +776,7 @@ class DrawingTools {
         for (const disc of this.app.system.discs) {
             const distance = MathUtils.distance(disc.x, disc.y, locus.primary.point.x, locus.primary.point.y);
             if (distance <= disc.radius + 1e-6) {
+                if (!disc.canAcceptAttachments()) continue;
                 return this.createDiscAttachmentAtPoint(disc, locus.primary.point);
             }
         }
@@ -790,7 +849,7 @@ class DrawingTools {
         if (hit?.type === 'disc' || hit?.type === 'disc-center') {
             disc = this.app.system.getDisc(hit.id);
         }
-        if (!disc) return;
+        if (!disc || !disc.canAcceptAttachments()) return;
 
         chain.startAttachment = this.createDiscAttachmentAtPoint(disc, world);
         this.refreshGeometry();
@@ -860,7 +919,8 @@ class DrawingTools {
         }
 
         document.getElementById('status-message').textContent = message;
-        document.getElementById('status-discs').textContent = this.app.system.discs.length;
+        document.getElementById('status-discs').textContent = this.app.system.getStandardDiscs().length;
+        document.getElementById('status-screens').textContent = this.app.system.getScreens().length;
         document.getElementById('status-chains').textContent = this.app.system.stickChains.length;
         document.getElementById('status-pencils').textContent = this.app.system.pencils.length;
     }

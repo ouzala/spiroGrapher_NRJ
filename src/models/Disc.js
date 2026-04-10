@@ -3,6 +3,7 @@
  */
 class Disc {
     constructor(id, x, y, radius, rpm, torque = AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE) {
+        this.kind = 'disc';               // model kind
         this.id = id;                    // unique identifier
         this.x = x;                      // center x position (mm)
         this.y = y;                      // center y position (mm)
@@ -123,6 +124,14 @@ class Disc {
      */
     getAttachmentPoint(attachmentDistance) {
         return this.getPointOnSurface(attachmentDistance);
+    }
+
+    isScreen() {
+        return false;
+    }
+
+    canAcceptAttachments() {
+        return true;
     }
 
     clone() {

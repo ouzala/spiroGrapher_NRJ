@@ -166,8 +166,20 @@ class App {
                 pencil.traces = pencil.traces.filter(trace => trace.timestamp <= nextTime);
             }
 
+            pencil.x = Number.isFinite(pencil.x) ? pencil.x : 0;
+            pencil.y = Number.isFinite(pencil.y) ? pencil.y : 0;
+
             if (recordTrace) {
-                pencil.updatePosition(pencil.x, pencil.y, nextTime);
+                const tracePoint = { x: pencil.x, y: pencil.y };
+                const screen = this.system.getScreenAtPoint(tracePoint);
+                if (screen) {
+                    const localPoint = screen.worldToLocal(tracePoint);
+                    pencil.updatePosition(pencil.x, pencil.y, nextTime, {
+                        screenId: screen.id,
+                        localX: localPoint.x,
+                        localY: localPoint.y
+                    });
+                }
             } else {
                 pencil.cleanupTraces(nextTime);
             }
@@ -299,12 +311,15 @@ class App {
             driveAnalysis: this.system.analyzeDiscDrives(),
             discs: this.system.discs.map(disc => ({
                 id: disc.id,
+                kind: disc.kind,
                 center: this.roundPoint({ x: disc.x, y: disc.y }),
                 radius: this.roundValue(disc.radius),
                 rpm: this.roundValue(disc.rpm),
                 restRpm: this.roundValue(disc.restRpm),
                 targetRpm: this.roundValue(disc.targetRpm),
                 torque: Number.isFinite(disc.torque) ? this.roundValue(disc.torque) : 'infinite',
+                color: disc.color || null,
+                transparencyMode: Boolean(disc.transparencyMode),
                 driveMode: disc.getDriveMode(),
                 legacyDriveBehavior: disc.getLegacyDriveBehavior(),
                 angle: this.roundValue(disc.angle)

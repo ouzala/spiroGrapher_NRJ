@@ -155,9 +155,11 @@ class PlaybackControls {
         }
 
         const toolDisc = document.getElementById('tool-disc');
+        const toolScreen = document.getElementById('tool-screen');
         const toolStick = document.getElementById('tool-stick');
         const toolPencil = document.getElementById('tool-pencil');
         if (toolDisc) toolDisc.disabled = playing;
+        if (toolScreen) toolScreen.disabled = playing;
         if (toolStick) toolStick.disabled = playing;
         if (toolPencil) toolPencil.disabled = playing;
     }
@@ -172,15 +174,16 @@ class PlaybackControls {
     renderDiscRpmControls() {
         if (!this.rpmContainer) return;
 
-        if (this.app.system.discs.length === 0) {
-            this.rpmContainer.innerHTML = '<div class="disc-rpm-empty">Add discs to create live RPM controls.</div>';
+        const discs = this.getRpmControlledDiscs();
+        if (discs.length === 0) {
+            this.rpmContainer.innerHTML = '<div class="disc-rpm-empty">Add discs or screens to create live RPM controls.</div>';
             return;
         }
 
-        this.rpmContainer.innerHTML = this.app.system.discs.map(disc => `
+        this.rpmContainer.innerHTML = discs.map(disc => `
             <div class="disc-rpm-row" data-disc-id="${disc.id}">
                 <div class="disc-rpm-header">
-                    <span>Disc ${disc.id}</span>
+                    <span>${this.getDiscLabel(disc)} ${disc.id}</span>
                     <span id="disc-rpm-value-${disc.id}">${disc.targetRpm.toFixed(0)} rpm</span>
                 </div>
                 <div class="disc-rpm-empty" id="disc-drive-note-${disc.id}">${this.getDiscDriveNote(disc)}</div>
@@ -202,14 +205,15 @@ class PlaybackControls {
         const sliderIds = new Set(
             Array.from(this.rpmContainer.querySelectorAll('[data-disc-rpm]')).map(element => Number(element.dataset.discRpm))
         );
-        const systemIds = new Set(this.app.system.discs.map(disc => disc.id));
+        const discs = this.getRpmControlledDiscs();
+        const systemIds = new Set(discs.map(disc => disc.id));
         const needsRerender = sliderIds.size !== systemIds.size || [...systemIds].some(id => !sliderIds.has(id));
 
         if (needsRerender) {
             this.renderDiscRpmControls();
         }
 
-        for (const disc of this.app.system.discs) {
+        for (const disc of discs) {
             const slider = this.rpmContainer.querySelector(`[data-disc-rpm="${disc.id}"]`);
             const label = document.getElementById(`disc-rpm-value-${disc.id}`);
             const note = document.getElementById(`disc-drive-note-${disc.id}`);
@@ -259,5 +263,13 @@ class PlaybackControls {
             return 'Freewheel: geometry-led angle';
         }
         return `Torque-limited: hybrid RPM modulation (${disc.torque.toFixed(0)}%)`;
+    }
+
+    getRpmControlledDiscs() {
+        return this.app.system.discs;
+    }
+
+    getDiscLabel(disc) {
+        return disc.isScreen() ? 'Screen' : 'Disc';
     }
 }

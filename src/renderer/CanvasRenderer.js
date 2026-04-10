@@ -104,10 +104,9 @@ class CanvasRenderer {
         const showMechanics = options.showMechanics !== false;
         this.clear();
 
-        if (showMechanics) {
-            for (const disc of system.discs) {
-                this.drawDisc(disc);
-            }
+        for (const disc of system.discs) {
+            if (!disc.isScreen() && !showMechanics) continue;
+            this.drawDisc(disc);
         }
 
         for (const pencil of system.pencils) {
@@ -120,6 +119,7 @@ class CanvasRenderer {
             }
 
             for (const disc of system.discs) {
+                if (disc.isScreen()) continue;
                 this.drawDiscCenter(disc);
             }
 
@@ -175,27 +175,42 @@ class CanvasRenderer {
         const canvasPos = this.worldToCanvas(disc.x, disc.y);
         const radiusPixels = disc.radius * this.scale * this.zoom;
 
-        this.ctx.fillStyle = this.colors.discFill;
+        const fillStyle = disc.isScreen()
+            ? this.hexToRgbA(disc.color || '#6dd3c7', disc.transparencyMode ? 0.2 : 0.45)
+            : this.colors.discFill;
+        const strokeStyle = disc.isScreen()
+            ? (disc.color || '#6dd3c7')
+            : this.colors.discStroke;
+
+        this.ctx.fillStyle = fillStyle;
         this.ctx.beginPath();
         this.ctx.arc(canvasPos.x, canvasPos.y, radiusPixels, 0, 2 * Math.PI);
         this.ctx.fill();
 
-        this.ctx.strokeStyle = this.colors.discStroke;
+        this.ctx.strokeStyle = strokeStyle;
         this.ctx.lineWidth = 2;
         this.ctx.beginPath();
         this.ctx.arc(canvasPos.x, canvasPos.y, radiusPixels, 0, 2 * Math.PI);
         this.ctx.stroke();
 
-        const indicator = this.worldToCanvas(
-            disc.x + disc.radius * 0.7 * Math.cos(disc.angle),
-            disc.y + disc.radius * 0.7 * Math.sin(disc.angle)
-        );
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        this.ctx.moveTo(canvasPos.x, canvasPos.y);
-        this.ctx.lineTo(indicator.x, indicator.y);
-        this.ctx.stroke();
+        if (!disc.isScreen()) {
+            const indicator = this.worldToCanvas(
+                disc.x + disc.radius * 0.7 * Math.cos(disc.angle),
+                disc.y + disc.radius * 0.7 * Math.sin(disc.angle)
+            );
+            this.ctx.strokeStyle = '#ffffff';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(canvasPos.x, canvasPos.y);
+            this.ctx.lineTo(indicator.x, indicator.y);
+            this.ctx.stroke();
+        } else {
+            this.ctx.fillStyle = strokeStyle;
+            this.ctx.font = '11px sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText('SCREEN', canvasPos.x, canvasPos.y);
+        }
     }
 
     drawDiscCenter(disc) {
@@ -329,8 +344,11 @@ class CanvasRenderer {
             const alpha = pencil.getTraceAlpha(age);
             if (alpha <= 0) continue;
 
-            const pos1 = this.worldToCanvas(t1.x, t1.y);
-            const pos2 = this.worldToCanvas(t2.x, t2.y);
+            const pos1World = this.getTraceWorldPosition(t1, system);
+            const pos2World = this.getTraceWorldPosition(t2, system);
+            if (!pos1World || !pos2World) continue;
+            const pos1 = this.worldToCanvas(pos1World.x, pos1World.y);
+            const pos2 = this.worldToCanvas(pos2World.x, pos2World.y);
 
             this.ctx.strokeStyle = this.hexToRgbA(t1.color, alpha);
             this.ctx.lineWidth = 1.5;
@@ -346,6 +364,14 @@ class CanvasRenderer {
         const g = parseInt(hex.slice(3, 5), 16);
         const b = parseInt(hex.slice(5, 7), 16);
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    getTraceWorldPosition(trace, system) {
+        if (!Number.isFinite(trace.screenId)) return null;
+
+        const screen = system.getDisc(trace.screenId);
+        if (!screen || !screen.isScreen()) return null;
+        return screen.localToWorld({ x: trace.localX, y: trace.localY });
     }
 
     hitTest(canvasX, canvasY, system, tolerance = 15, options = {}) {

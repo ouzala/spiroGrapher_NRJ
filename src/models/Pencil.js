@@ -21,17 +21,24 @@ class Pencil {
      * @param {number} y - new y position
      * @param {number} currentTime - current simulation time (seconds)
      */
-    updatePosition(x, y, currentTime) {
+    updatePosition(x, y, currentTime, traceData = null) {
         this.x = x;
         this.y = y;
-        
-        // Add new trace point
-        this.traces.push({
-            x: x,
-            y: y,
+
+        const trace = {
+            x,
+            y,
             timestamp: currentTime,
             color: this.color
-        });
+        };
+
+        if (traceData && Number.isFinite(traceData.screenId)) {
+            trace.screenId = traceData.screenId;
+            trace.localX = traceData.localX;
+            trace.localY = traceData.localY;
+        }
+
+        this.traces.push(trace);
     }
 
     /**
@@ -69,7 +76,7 @@ class Pencil {
     }
 
     clone() {
-        return new Pencil(
+        const pencil = new Pencil(
             this.id,
             this.stickChainId,
             this.stickIndex,
@@ -77,5 +84,9 @@ class Pencil {
             this.color,
             this.persistenceDuration
         );
+        pencil.x = this.x;
+        pencil.y = this.y;
+        pencil.traces = this.traces.map(trace => ({ ...trace }));
+        return pencil;
     }
 }
