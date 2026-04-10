@@ -7,6 +7,7 @@ class Disc {
         this.id = id;                    // unique identifier
         this.x = x;                      // center x position (mm)
         this.y = y;                      // center y position (mm)
+        this.centerAttachment = null;    // optional rotating-surface attachment for the disc center
         this.radius = radius;            // radius (mm)
         this.restRpm = rpm;              // preferred drive speed used by the solver
         this.rpm = rpm;                  // actual speed after solving / playback
@@ -131,9 +132,34 @@ class Disc {
         return true;
     }
 
+    worldToLocal(point) {
+        const dx = point.x - this.x;
+        const dy = point.y - this.y;
+        const cos = Math.cos(-this.angle);
+        const sin = Math.sin(-this.angle);
+        return {
+            x: dx * cos - dy * sin,
+            y: dx * sin + dy * cos
+        };
+    }
+
+    localToWorld(point) {
+        const cos = Math.cos(this.angle);
+        const sin = Math.sin(this.angle);
+        return {
+            x: this.x + point.x * cos - point.y * sin,
+            y: this.y + point.x * sin + point.y * cos
+        };
+    }
+
+    containsWorldPoint(point) {
+        return MathUtils.distance(this.x, this.y, point.x, point.y) <= this.radius + 1e-6;
+    }
+
     clone() {
         const d = new Disc(this.id, this.x, this.y, this.radius, this.restRpm, this.torque);
         d.angle = this.angle;
+        d.centerAttachment = this.centerAttachment ? { ...this.centerAttachment } : null;
         d.restRpm = this.restRpm;
         d.rpm = this.rpm;
         d.targetRpm = this.targetRpm;

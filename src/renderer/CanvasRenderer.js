@@ -10,7 +10,11 @@ class CanvasRenderer {
         this.scale = 1;
         this.panX = this.width / 2;
         this.panY = this.height / 2;
-        this.zoom = 1;
+        this.zoom = AppConfig.SYSTEM_DEFAULTS.ZOOM;
+        this.viewCenter(
+            AppConfig.SYSTEM_DEFAULTS.VIEW_CENTER?.x ?? 0,
+            AppConfig.SYSTEM_DEFAULTS.VIEW_CENTER?.y ?? 0
+        );
 
         this.colors = { ...AppConfig.COLORS };
     }
@@ -43,6 +47,15 @@ class CanvasRenderer {
     panBy(deltaX, deltaY) {
         this.panX += deltaX;
         this.panY += deltaY;
+    }
+
+    viewCenter(x, y) {
+        const centerX = Number.isFinite(x) ? x : 0;
+        const centerY = Number.isFinite(y) ? y : 0;
+        const transformScale = this.scale * this.zoom;
+
+        this.panX = this.width / 2 - centerX * transformScale;
+        this.panY = this.height / 2 - centerY * transformScale;
     }
 
     zoomAt(canvasX, canvasY, zoomFactor) {

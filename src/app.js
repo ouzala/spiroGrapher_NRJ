@@ -29,7 +29,10 @@ class App {
         window.addEventListener('resize', () => this.onWindowResize());
         window.addEventListener('contextmenu', event => event.preventDefault());
         document.getElementById('btn-print').addEventListener('click', () => this.printSystemConfiguration());
-        document.getElementById('btn-load-test').addEventListener('click', () => this.loadDebugTestConfiguration());
+        
+        //document.getElementById('btn-load-test').addEventListener('click', () => this.loadDebugTestConfiguration());
+        document.getElementById('btn-load-test').addEventListener('click', () => this.testLandscapeLoader());
+        
         document.getElementById('btn-toggle-solver').addEventListener('click', () => this.toggleSolverMode());
         this.onWindowResize();
         this.drawingTools.refreshGeometry();
@@ -148,6 +151,7 @@ class App {
         }
 
         this.advanceDiscAngles(dtMs, useDiscUpdate);
+        this.system.syncAttachedRotatingBodies();
 
         const result = this.solver.solve();
         this.lastSolveResult = result;
@@ -244,6 +248,7 @@ class App {
     }
 
     render() {
+        this.system.syncAttachedRotatingBodies();
         this.renderer.render(this.system, { showMechanics: this.showMechanics });
 
         if (this.showMechanics && this.drawingTools.pendingDiscStart) {
@@ -292,10 +297,11 @@ class App {
         };
     }
 
-    printSystemConfiguration() {
+    buildSystemConfigurationExport() {
+        this.system.syncAttachedRotatingBodies();
         this.drawingTools.refreshGeometry();
 
-        const dump = {
+        return {
             simTime: this.roundValue(this.system.simTime || 0),
             solver: this.solver.constructor.name,
             lastSolveResult: this.lastSolveResult ? {
@@ -319,6 +325,7 @@ class App {
                 targetRpm: this.roundValue(disc.targetRpm),
                 torque: Number.isFinite(disc.torque) ? this.roundValue(disc.torque) : 'infinite',
                 color: disc.color || null,
+                centerAttachment: disc.centerAttachment ? { ...disc.centerAttachment } : null,
                 transparencyMode: Boolean(disc.transparencyMode),
                 driveMode: disc.getDriveMode(),
                 legacyDriveBehavior: disc.getLegacyDriveBehavior(),
@@ -334,6 +341,7 @@ class App {
                 targetRpm: this.roundValue(screen.targetRpm),
                 torque: Number.isFinite(screen.torque) ? this.roundValue(screen.torque) : 'infinite',
                 color: screen.color || null,
+                centerAttachment: screen.centerAttachment ? { ...screen.centerAttachment } : null,
                 transparencyMode: Boolean(screen.transparencyMode),
                 driveMode: screen.getDriveMode(),
                 legacyDriveBehavior: screen.getLegacyDriveBehavior(),
@@ -419,12 +427,37 @@ class App {
                 point: this.roundPoint({ x: pencil.x, y: pencil.y })
             }))
         };
-
-        console.groupCollapsed('[Debug] System configuration');
-        console.log(dump);
-        console.groupEnd();
-        this.drawingTools.updateStatus('System configuration printed to console.');
     }
+
+    printSystemConfiguration() {
+        const dump = this.buildSystemConfigurationExport();
+        const json = JSON.stringify(dump, null, 2);
+
+        console.groupCollapsed('[Export] System configuration JSON');
+        console.log(json);
+        console.groupEnd();
+        this.drawingTools.updateStatus('System configuration exported as JSON in the console.');
+    }
+
+
+    testLandscapeLoader() {
+        // TODO
+        this.drawingTools.updateStatus('Loading test landscape...');
+        this.resetPlaybackState();
+        this.system.clear();
+        const LP = AppConfig.TEST_LANDSCAPE;
+        LP.discs.forEach(el => {
+            const disc = this.system.addDisc(el.x, el.y, el.r, el.rpm);
+        });
+        LP.screens.forEach(el => {
+            const screen = this.system.addScreen(el.x, el.y, el.r, el.rpm);
+        });
+        this.drawingTools.cancelPendingConstruction();
+        this.drawingTools.refreshGeometry();
+        this.playbackControls.syncSidebar();
+        this.drawingTools.updateStatus('Test Landscape loaded.');
+        this.printSystemConfiguration();
+    };
 
     loadDebugTestConfiguration() {
         this.drawingTools.updateStatus('Loading debug test setup...');
@@ -444,8 +477,8 @@ class App {
         disc1.rpm = 30;
         disc2.rpm = 60;
 
-        const chain1 = this.system.addStickChain();
-        const chain2 = this.system.addStickChain();
+        const chain1 = this.system.addStickChain(disc1);
+        const chain2 = this.system.addStickChain(disc2);
 
         const segment1Start = { x: 60, y: 0 };
         const segment1End = { x: -300, y: -200 };

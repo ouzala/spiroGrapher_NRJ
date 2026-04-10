@@ -58,6 +58,11 @@ class DrawingTools {
         canvas.addEventListener('mousemove', event => this.onCanvasMouseMove(event));
         canvas.addEventListener('mouseup', event => this.onCanvasMouseUp(event));
         canvas.addEventListener('mouseleave', event => this.onCanvasMouseUp(event));
+        canvas.addEventListener('auxclick', event => {
+            if (event.button === 1) {
+                event.preventDefault();
+            }
+        });
         canvas.addEventListener('wheel', event => this.onCanvasWheel(event), { passive: false });
         canvas.addEventListener('contextmenu', event => event.preventDefault());
 
@@ -143,11 +148,29 @@ class DrawingTools {
         return surface?.kind === 'screen' ? 'Screen' : 'Disc';
     }
 
+    getToolGuidance() {
+        if (this.activeTool === 'stick') {
+            if (this.pendingStick?.mode === 'append') {
+                return 'Stick tool: click to place the next stick end and extend the current chain.';
+            }
+            if (!this.pendingStick) {
+                return 'Stick tool: click a disc or screen to start a new chain, then click again to place its first stick.';
+            }
+        }
+        return null;
+    }
+
     onCanvasMouseDown(event) {
         if (this.hasModalOpen()) return;
 
         const { canvasX, canvasY, world } = this.getCanvasEventData(event);
         const hit = this.app.renderer.hitTest(canvasX, canvasY, this.app.system, 10);
+
+        if (event.button === 1) {
+            event.preventDefault();
+            this.dragState = { type: 'middle-pan', lastCanvasX: canvasX, lastCanvasY: canvasY, moved: false };
+            return;
+        }
 
         if ((this.activeTool === 'disc' || this.activeTool === 'screen') && event.button === 0) {
             this.pauseForEditing();
@@ -186,6 +209,7 @@ class DrawingTools {
         }
 
         if (event.button === 2) {
+            event.preventDefault();
             let menuTarget = null;
             if (hit?.type === 'pencil') {
                 menuTarget = { type: 'pencil-menu', pencilId: hit.id };
@@ -198,7 +222,7 @@ class DrawingTools {
             } else if (hit?.type === 'stick') {
                 menuTarget = { type: 'stick-menu', chainId: hit.chainId, stickIndex: hit.stickIndex };
             }
-            this.dragState = { type: 'context-pan', lastCanvasX: canvasX, lastCanvasY: canvasY, moved: false, menuTarget };
+            this.dragState = { type: 'context-menu', moved: false, menuTarget };
             return;
         }
 
@@ -244,8 +268,7 @@ class DrawingTools {
         if (this.dragState?.type === 'disc-move') {
             const disc = this.app.system.getDriveSurface(this.dragState.surfaceType, this.dragState.discId);
             if (!disc) return;
-            disc.x += world.x - this.dragState.lastWorld.x;
-            disc.y += world.y - this.dragState.lastWorld.y;
+            this.applyRotatingBodyCenterPlacement(disc, world);
             this.dragState.lastWorld = world;
             this.dragState.moved = true;
             this.refreshGeometry();
@@ -253,7 +276,7 @@ class DrawingTools {
             return;
         }
 
-        if (this.dragState?.type === 'context-pan') {
+        if (this.dragState?.type === 'middle-pan') {
             this.dragState.moved = true;
             this.app.renderer.panBy(canvasX - this.dragState.lastCanvasX, canvasY - this.dragState.lastCanvasY);
             this.dragState.lastCanvasX = canvasX;
@@ -324,7 +347,11 @@ class DrawingTools {
             return;
         }
 
-        if (drag.type === 'context-pan') {
+        if (drag.type === 'middle-pan') {
+            return;
+        }
+
+        if (drag.type === 'context-menu') {
             if (drag.moved || !drag.menuTarget) {
                 return;
             }
@@ -372,6 +399,17 @@ class DrawingTools {
         return { type: surface.kind, id: surface.id, distance, angleOffset };
     }
 
+    resolveRotatingBodyCenterAttachment(world, excludeSurface = null) {
+        const host = this.app.system.findAttachableRotatingBodyAtPoint(world, { exclude: excludeSurface });
+        return host ? this.createDiscAttachmentAtPoint(host, world) : null;
+    }
+
+    applyRotatingBodyCenterPlacement(surface, world) {
+        surface.centerAttachment = this.resolveRotatingBodyCenterAttachment(world, surface);
+        surface.x = world.x;
+        surface.y = world.y;
+    }
+
     openDiscModalForAdd() {
         this.discModalMode = 'add';
         this.editingDiscId = null;
@@ -415,11 +453,14 @@ class DrawingTools {
         let updatedLabel = 'Disc';
 
         if (this.discModalMode === 'add' && this.pendingDiscStart) {
+            const centerAttachment = this.resolveRotatingBodyCenterAttachment(this.pendingDiscStart);
             if (this.activeTool === 'screen') {
-                this.app.system.addScreen(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, screenColor, transparencyMode);
+                const screen = this.app.system.addScreen(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, screenColor, transparencyMode);
+                screen.centerAttachment = centerAttachment;
                 updatedLabel = 'Screen';
             } else {
-                this.app.system.addDisc(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, torque);
+                const disc = this.app.system.addDisc(this.pendingDiscStart.x, this.pendingDiscStart.y, radius, rpm, torque);
+                disc.centerAttachment = centerAttachment;
             }
             this.pendingDiscStart = null;
             this.pendingDiscRadius = 0;
@@ -548,7 +589,7 @@ class DrawingTools {
                 previewEnd: { ...world },
                 previewAttachment: null
             };
-            this.updateStatus('Click a second point to place the stick end.');
+            this.updateStatus('New chain started. Click a second point to place its first stick.');
             return;
         }
 
@@ -620,7 +661,8 @@ class DrawingTools {
         let startPos = preview.start;
 
         if (this.pendingStick.mode === 'new') {
-            chain = this.app.system.addStickChain();
+            const discParentObj = this.app.system.getDriveSurface(this.pendingStick.startAttachment);
+            chain = this.app.system.addStickChain(discParentObj);
             chain.startAttachment = { ...this.pendingStick.startAttachment };
         } else {
             chain = this.app.system.getStickChain(this.pendingStick.chainId);
@@ -685,7 +727,7 @@ class DrawingTools {
             previewEnd: { x: lastStick.endX + 80, y: lastStick.endY },
             previewAttachment: { type: 'openEnd' }
         };
-        this.updateStatus('Click to place the next stick end.');
+        this.updateStatus('Appending to the current chain. Click to place the next stick end.');
     }
 
     saveStickSettings() {
@@ -885,6 +927,7 @@ class DrawingTools {
         if (!disc || !disc.canAcceptAttachments()) return;
 
         chain.startAttachment = this.createDiscAttachmentAtPoint(disc, world);
+        chain.discParentObject = disc;
         this.refreshGeometry();
     }
 
@@ -902,6 +945,7 @@ class DrawingTools {
     }
 
     refreshGeometry() {
+        this.app.system.syncAttachedRotatingBodies();
         const validation = this.app.system.validate();
         if (validation.valid) {
             const result = this.app.solver.solve();
@@ -946,6 +990,10 @@ class DrawingTools {
     updateStatus(message = null) {
         if (!message) {
             message = this.app.system.getStatus();
+            const toolGuidance = this.getToolGuidance();
+            if (toolGuidance) {
+                message += ` ${toolGuidance}`;
+            }
             if (this.activeTool) {
                 message += ` [${this.activeTool.toUpperCase()} tool active]`;
             }

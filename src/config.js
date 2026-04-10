@@ -1,3 +1,5 @@
+//  APP CONFIGURATION FILE
+
 const SHARED_SOLVER_PARAMETERS = {
     CONVERGENCE_TOLERANCE: 1e-3,
     JACOBIAN_EPSILON: 1e-4,
@@ -9,7 +11,9 @@ const SYSTEM_DEFAULTS = {
     STICK_STIFFNESS: 100,       // % based
     PENCIL_DEF_RADIUS: 4,       // px symbole radius
     TRACE_DEF_WIDTH: 1.5,       // px trace line width   
-    TRACE_DEF_DURATION: 20,     // persistance in seconds 
+    TRACE_DEF_DURATION: 20,     // persistance in seconds
+    ZOOM : 1,
+    VIEW_CENTER: {x:0, y:0}, 
 };
 
 const POSITION_SOLVER_PARAMETERS = {
@@ -47,10 +51,17 @@ const DEFAULT_COLORS = {
 const VALIDATOR_DEFAULTS = {
     MAX_ACTUATORS : 10,
     MAX_CHAINS : 10,
-    MAX_SCREENS : 3,
+    MAX_SCREENS : 10,
     MAX_ANCHORS : 10,
 }
 
+const TESTING_LANDSCAPE = {
+    // TODO : extend loader @ app.testLandscapeLoader()
+
+    // Discs and Screens Only loader
+    "discs" : [ {x:700, y:700, r:80, rpm:30} , {x:-700, y:-700, r:80, rpm:55}],  
+    "screens" : [{x:0, y:0, r:200, rpm:5}] ,
+}
 
 window.AppConfig = {
     SYSTEM_DEFAULTS,
@@ -58,19 +69,19 @@ window.AppConfig = {
     transformStickStiffnessPercent,
     getEffectiveStickStiffnessFromPercent,
 
-    GENERAL_SIMULATION: {...SHARED_SOLVER_PARAMETERS },
+    GENERAL_SIMULATION : {...SHARED_SOLVER_PARAMETERS },
 
-    COLORS: {...DEFAULT_COLORS },
+    COLORS : {...DEFAULT_COLORS },
 
-    VALIDATORS: {...VALIDATOR_DEFAULTS},
+    VALIDATORS : {...VALIDATOR_DEFAULTS},
 
-    KINEMATIC_SOLVER: {
+    KINEMATIC_SOLVER : {
         MAX_ITERATIONS: 30,
         DAMPING: 1e-3,
         MAX_ANGLE_STEP: 0.35
     },
 
-    ENERGY_SOLVER: {
+    ENERGY_SOLVER : {
         ...POSITION_SOLVER_PARAMETERS,
         MAX_ITERATIONS: 40,
         DAMPING: 1e-2,
@@ -78,7 +89,7 @@ window.AppConfig = {
         FIXED_POINT_STIFFNESS: 1e5
     },
 
-    HYBRID_SOLVER: {
+    HYBRID_SOLVER : {
         ...POSITION_SOLVER_PARAMETERS,
         MAX_ITERATIONS: 40,
         DAMPING: 1e-2,
@@ -86,7 +97,10 @@ window.AppConfig = {
         MERIT_CONSTRAINT_WEIGHT: 50,
         DRIVE_WEIGHT: 5e-2,
         FREEWHEEL_REGULARIZATION: 1e-4
-    }
+    },
+
+    TEST_LANDSCAPE : {...TESTING_LANDSCAPE},
+
 };
 
 // Helper functions for stick stiffness calibration and transformation. The UI allows users to specify stick stiffness as a percentage, which is then transformed into an effective stiffness value used by the solvers. The transformation is designed to provide a smooth and intuitive mapping from percentage to stiffness, with special handling for values at the upper end of the range to allow for a "rigid" setting.

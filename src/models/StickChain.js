@@ -2,11 +2,12 @@
  * StickChain: A sequence of sticks connected by revolute joints
  */
 class StickChain {
-    constructor(id) {
+    constructor(id, discParentObject = null) {
         this.id = id;
         this.sticks = [];
         this.startAttachment = null;
         this.endAttachment = null;
+        this.discParentObject = discParentObject;
     }
 
     addStick(stick) {
@@ -39,7 +40,7 @@ class StickChain {
     }
 
     clone() {
-        const chain = new StickChain(this.id);
+        const chain = new StickChain(this.id, this.discParentObject);
         for (const stick of this.sticks) {
             chain.addStick(stick.clone());
         }

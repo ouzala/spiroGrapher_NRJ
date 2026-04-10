@@ -7,6 +7,7 @@ class Screen {
         this.id = id;
         this.x = x;
         this.y = y;
+        this.centerAttachment = null;
         this.radius = radius;
         this.restRpm = rpm;
         this.rpm = rpm;
@@ -133,6 +134,7 @@ class Screen {
     clone() {
         const screen = new Screen(this.id, this.x, this.y, this.radius, this.restRpm, this.color, this.transparencyMode);
         screen.angle = this.angle;
+        screen.centerAttachment = this.centerAttachment ? { ...this.centerAttachment } : null;
         screen.restRpm = this.restRpm;
         screen.rpm = this.rpm;
         screen.targetRpm = this.targetRpm;

@@ -29,8 +29,8 @@ class System {
         return screen;
     }
 
-    addStickChain() {
-        const chain = new StickChain(this.nextChainId++);
+    addStickChain(discParentObject = null) {
+        const chain = new StickChain(this.nextChainId++, discParentObject);
         this.stickChains.push(chain);
         return chain;
     }
@@ -76,6 +76,13 @@ class System {
 
     getRotatingBodies() {
         return [...this.discs, ...this.screens];
+    }
+
+    getRotatingBodiesTopDown() {
+        return [
+            ...[...this.discs].reverse(),
+            ...[...this.screens].reverse()
+        ];
     }
 
     getScreens() {
@@ -228,20 +235,19 @@ class System {
     }
 
     validate() {
-        const rotatingBodyCount = this.discs.length + this.screens.length;
-        if (rotatingBodyCount === 0) {
+        if (this.discs.length === 0) {
             return { valid: false, message: 'System needs at least 1 actuator' };
         }
-        if (rotatingBodyCount > AppConfig.VALIDATORS.MAX_ACTUATORS) {
+        if (this.discs.length > AppConfig.VALIDATORS.MAX_ACTUATORS) {
             return { valid: false, message: `Too many disc actuators (max ${AppConfig.VALIDATORS.MAX_ACTUATORS} )` };
         }
         if (this.stickChains.length > AppConfig.VALIDATORS.MAX_CHAINS) {
             return { valid: false, message: `Too many segment chains (max ${AppConfig.VALIDATORS.MAX_CHAINS} )` };
         }
-        if (this.screens.length > AppConfig.VALIDATORS.MAX_ANCHORS) {
+        if (this.anchors.length > AppConfig.VALIDATORS.MAX_ANCHORS) {
             return { valid: false, message: `Too many Anchors (max ${AppConfig.VALIDATORS.MAX_ANCHORS} )` };
         }
-        if (this.stickChains.length > AppConfig.VALIDATORS.MAX_SCREENS) {
+        if (this.screens.length > AppConfig.VALIDATORS.MAX_SCREENS) {
             return { valid: false, message: `Too many Screens (max ${AppConfig.VALIDATORS.MAX_SCREENS} )` };
         }
 
@@ -337,6 +343,13 @@ class System {
     }
 
     removeAttachmentsForDriveSurface(surfaceType, surfaceId) {
+        for (const body of this.getRotatingBodies()) {
+            const attachmentType = this.getAttachmentType(body.centerAttachment);
+            if (attachmentType === surfaceType && body.centerAttachment.id === surfaceId) {
+                body.centerAttachment = null;
+            }
+        }
+
         const removedChainIds = new Set();
         const removedStickIds = new Set();
         this.stickChains = this.stickChains.filter(chain => {
@@ -398,12 +411,91 @@ class System {
     }
 
     getScreenAtPoint(point) {
+        this.syncAttachedRotatingBodies();
         for (let i = this.screens.length - 1; i >= 0; i--) {
             const screen = this.screens[i];
             if (!screen.containsWorldPoint(point)) continue;
             return screen;
         }
         return null;
+    }
+
+    syncAttachedRotatingBodies() {
+        const cache = new Map();
+        const visiting = new Set();
+
+        for (const body of this.getRotatingBodies()) {
+            this.resolveAttachedRotatingBodyPosition(body, cache, visiting);
+        }
+    }
+
+    resolveAttachedRotatingBodyPosition(body, cache = new Map(), visiting = new Set()) {
+        const key = `${body.kind}:${body.id}`;
+        if (cache.has(key)) {
+            return cache.get(key);
+        }
+        if (visiting.has(key)) {
+            return { x: body.x, y: body.y };
+        }
+
+        visiting.add(key);
+
+        let resolved = { x: body.x, y: body.y };
+        const attachmentType = this.getAttachmentType(body.centerAttachment);
+        if (attachmentType === 'disc' || attachmentType === 'screen') {
+            const parent = this.getDriveSurface(body.centerAttachment);
+            if (parent && !this.wouldCreateRotatingBodyCycle(body, body.centerAttachment)) {
+                this.resolveAttachedRotatingBodyPosition(parent, cache, visiting);
+                resolved = parent.getPointOnSurface(
+                    body.centerAttachment.distance || 0,
+                    body.centerAttachment.angleOffset || 0
+                );
+            }
+        }
+
+        body.x = resolved.x;
+        body.y = resolved.y;
+        cache.set(key, resolved);
+        visiting.delete(key);
+        return resolved;
+    }
+
+    findAttachableRotatingBodyAtPoint(point, options = {}) {
+        const exclude = options.exclude || null;
+        this.syncAttachedRotatingBodies();
+
+        for (const body of this.getRotatingBodiesTopDown()) {
+            if (exclude && body.kind === exclude.kind && body.id === exclude.id) continue;
+            if (!body.containsWorldPoint(point)) continue;
+            if (!body.canAcceptAttachments()) continue;
+            if (exclude && this.wouldCreateRotatingBodyCycle(exclude, { type: body.kind, id: body.id })) continue;
+            return body;
+        }
+
+        return null;
+    }
+
+    wouldCreateRotatingBodyCycle(surface, targetAttachment) {
+        if (!surface || !targetAttachment) return false;
+
+        let current = this.getDriveSurface(targetAttachment);
+        const visited = new Set();
+        while (current) {
+            const key = `${current.kind}:${current.id}`;
+            if (visited.has(key)) return true;
+            if (current.kind === surface.kind && current.id === surface.id) {
+                return true;
+            }
+            visited.add(key);
+
+            const attachmentType = this.getAttachmentType(current.centerAttachment);
+            if (attachmentType !== 'disc' && attachmentType !== 'screen') {
+                return false;
+            }
+            current = this.getDriveSurface(current.centerAttachment);
+        }
+
+        return false;
     }
 
     clone() {
@@ -423,6 +515,9 @@ class System {
 
         for (const chain of this.stickChains) {
             const newChain = chain.clone();
+            newChain.discParentObject = newChain.startAttachment
+                ? newSys.getDriveSurface(newChain.startAttachment)
+                : null;
             newSys.stickChains.push(newChain);
             newSys.nextChainId = Math.max(newSys.nextChainId, newChain.id + 1);
         }
