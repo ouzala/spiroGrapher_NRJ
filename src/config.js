@@ -17,7 +17,29 @@ const POSITION_SOLVER_PARAMETERS = {
     STICK_MIN_STIFFNESS: 1e-6
 };
 
+const DEFAULT_COLORS = {
+            background: '#282828',
+            gridColor: '#333',
+            
+            discFill: '#3498db',
+            discStroke: '#2980b9',
+            discCenter: '#103a5c',
+            
+            stickStroke: '#e74c3c',
+            stickWidth: 3,
+            jointRadius: 4,
+            jointFill: '#ff4d4f',
+            
+            anchorFill: '#f1c40f',
+            anchorStroke: '#c89d08',
+            
+            pencilDefaultColor: '#6dd3c7',
+            pencilRadius: 4,
 
+            screenDefaultFill: '#080808',
+            screenStroke: '#080808',
+            screenCenter: '#080808',        
+};
 
 window.AppConfig = {
     SYSTEM_DEFAULTS,
@@ -25,9 +47,9 @@ window.AppConfig = {
     transformStickStiffnessPercent,
     getEffectiveStickStiffnessFromPercent,
 
-    GENERAL_SIMULATION: {
-        ...SHARED_SOLVER_PARAMETERS
-    },
+    GENERAL_SIMULATION: {...SHARED_SOLVER_PARAMETERS },
+
+    COLORS: {...DEFAULT_COLORS },
 
     KINEMATIC_SOLVER: {
         MAX_ITERATIONS: 30,

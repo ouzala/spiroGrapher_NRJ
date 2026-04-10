@@ -126,10 +126,6 @@ class Disc {
         return this.getPointOnSurface(attachmentDistance);
     }
 
-    isScreen() {
-        return false;
-    }
-
     canAcceptAttachments() {
         return true;
     }

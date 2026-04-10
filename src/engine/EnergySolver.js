@@ -94,7 +94,9 @@ class EnergySolver {
 
             const nodes = [];
             const startAttachment = chain.startAttachment;
-            const startDisc = startAttachment?.type === 'disc' ? this.system.getDisc(startAttachment.id) : null;
+            const startDisc = (startAttachment?.type === 'disc' || startAttachment?.type === 'screen')
+                ? this.system.getDriveSurface(startAttachment)
+                : null;
             const startIsHardDriven = Boolean(startDisc?.isHardDriven());
 
             for (let nodeIndex = 0; nodeIndex <= chain.sticks.length; nodeIndex++) {
@@ -135,7 +137,7 @@ class EnergySolver {
                 });
             }
 
-            if (startAttachment?.type === 'disc' && startDisc && !startDisc.isHardDriven()) {
+            if ((startAttachment?.type === 'disc' || startAttachment?.type === 'screen') && startDisc && !startDisc.isHardDriven()) {
                 topology.softDiscAttachments.push({
                     chainId: chain.id,
                     node: nodes[0],
@@ -420,8 +422,8 @@ class EnergySolver {
 
         const type = this.system.getAttachmentType(attachment);
 
-        if (type === 'disc') {
-            const disc = this.system.getDisc(attachment.id);
+        if (type === 'disc' || type === 'screen') {
+            const disc = this.system.getDriveSurface(attachment);
             if (!disc) return { x: 0, y: 0 };
             return disc.getPointOnSurface(attachment.distance, attachment.angleOffset || 0);
         }

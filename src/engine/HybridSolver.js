@@ -167,7 +167,7 @@ class HybridSolver {
             topology.manualAnchors.push(anchor);
         }
 
-        for (const disc of this.system.discs) {
+        for (const disc of this.system.getRotatingBodies()) {
             if (disc.isHardDriven()) continue;
             topology.softDiscs.push({
                 disc,
@@ -183,8 +183,8 @@ class HybridSolver {
     canFixNodeAttachment(attachment) {
         const type = this.system.getAttachmentType(attachment);
         if (type === 'fixedPoint') return true;
-        if (type !== 'disc') return false;
-        const disc = this.system.getDisc(attachment.id);
+        if (type !== 'disc' && type !== 'screen') return false;
+        const disc = this.system.getDriveSurface(attachment);
         return Boolean(disc?.isHardDriven());
     }
 
@@ -590,8 +590,8 @@ class HybridSolver {
 
         const type = this.system.getAttachmentType(attachment);
 
-        if (type === 'disc') {
-            const disc = this.system.getDisc(attachment.id);
+        if (type === 'disc' || type === 'screen') {
+            const disc = this.system.getDriveSurface(attachment);
             if (!disc) return { x: 0, y: 0 };
             return disc.getPointOnSurface(attachment.distance, attachment.angleOffset || 0);
         }

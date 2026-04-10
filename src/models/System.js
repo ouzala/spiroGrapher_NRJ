@@ -4,10 +4,12 @@
 class System {
     constructor() {
         this.discs = [];
+        this.screens = [];
         this.stickChains = [];
         this.pencils = [];
         this.anchors = [];
         this.nextDiscId = 1;
+        this.nextScreenId = 1;
         this.nextChainId = 1;
         this.stickIdCounter = 1;
         this.nextPencilId = 1;
@@ -22,8 +24,8 @@ class System {
     }
 
     addScreen(x, y, radius, rpm, color = '#6dd3c7', transparencyMode = false) {
-        const screen = new Screen(this.nextDiscId++, x, y, radius, rpm, color, transparencyMode);
-        this.discs.push(screen);
+        const screen = new Screen(this.nextScreenId++, x, y, radius, rpm, color, transparencyMode);
+        this.screens.push(screen);
         return screen;
     }
 
@@ -56,12 +58,32 @@ class System {
         return this.discs.find(disc => disc.id === id) || null;
     }
 
+    getScreen(id) {
+        return this.screens.find(screen => screen.id === id) || null;
+    }
+
+    getDriveSurface(attachmentOrKind, id = null) {
+        if (typeof attachmentOrKind === 'object' && attachmentOrKind !== null) {
+            if (attachmentOrKind.type === 'disc') return this.getDisc(attachmentOrKind.id);
+            if (attachmentOrKind.type === 'screen') return this.getScreen(attachmentOrKind.id);
+            return null;
+        }
+
+        if (attachmentOrKind === 'disc') return this.getDisc(id);
+        if (attachmentOrKind === 'screen') return this.getScreen(id);
+        return null;
+    }
+
+    getRotatingBodies() {
+        return [...this.discs, ...this.screens];
+    }
+
     getScreens() {
-        return this.discs.filter(disc => disc.isScreen());
+        return this.screens;
     }
 
     getStandardDiscs() {
-        return this.discs.filter(disc => !disc.isScreen());
+        return this.discs;
     }
 
     getStickChain(id) {
@@ -206,10 +228,11 @@ class System {
     }
 
     validate() {
-        if (this.discs.length === 0) {
+        const rotatingBodyCount = this.discs.length + this.screens.length;
+        if (rotatingBodyCount === 0) {
             return { valid: false, message: 'System needs at least 1 disc or screen' };
         }
-        if (this.discs.length > 4) {
+        if (rotatingBodyCount > 4) {
             return { valid: false, message: 'Too many discs/screens (max 4)' };
         }
         if (this.stickChains.length === 0) {
@@ -227,8 +250,9 @@ class System {
                 return { valid: false, message: `Chain ${chain.id}: missing end attachment` };
             }
 
-            if (chain.startAttachment.type === 'disc' && !this.getDisc(chain.startAttachment.id)) {
-                return { valid: false, message: `Chain ${chain.id}: disc ${chain.startAttachment.id} not found` };
+            if ((chain.startAttachment.type === 'disc' || chain.startAttachment.type === 'screen')
+                && !this.getDriveSurface(chain.startAttachment)) {
+                return { valid: false, message: `Chain ${chain.id}: ${chain.startAttachment.type} ${chain.startAttachment.id} not found` };
             }
 
             if (this.getAttachmentType(chain.endAttachment) === 'anchor') {
@@ -273,9 +297,9 @@ class System {
                 if (targetStick.id === primaryStick.id) {
                     return { valid: false, message: `Anchor ${anchor.id}: cannot target its own primary stick` };
                 }
-            } else if (targetType === 'disc') {
-                if (!this.getDisc(anchor.targetAttachment.id)) {
-                    return { valid: false, message: `Anchor ${anchor.id}: target disc ${anchor.targetAttachment.id} not found` };
+            } else if (targetType === 'disc' || targetType === 'screen') {
+                if (!this.getDriveSurface(anchor.targetAttachment)) {
+                    return { valid: false, message: `Anchor ${anchor.id}: target ${targetType} ${anchor.targetAttachment.id} not found` };
                 }
             } else if (targetType === 'fixedPoint') {
                 if (!Number.isFinite(anchor.targetAttachment.x) || !Number.isFinite(anchor.targetAttachment.y)) {
@@ -298,10 +322,19 @@ class System {
 
     removeDisc(discId) {
         this.discs = this.discs.filter(disc => disc.id !== discId);
+        this.removeAttachmentsForDriveSurface('disc', discId);
+    }
+
+    removeScreen(screenId) {
+        this.screens = this.screens.filter(screen => screen.id !== screenId);
+        this.removeAttachmentsForDriveSurface('screen', screenId);
+    }
+
+    removeAttachmentsForDriveSurface(surfaceType, surfaceId) {
         const removedChainIds = new Set();
         const removedStickIds = new Set();
         this.stickChains = this.stickChains.filter(chain => {
-            const removeChain = chain.startAttachment?.type === 'disc' && chain.startAttachment.id === discId;
+            const removeChain = chain.startAttachment?.type === surfaceType && chain.startAttachment.id === surfaceId;
             if (removeChain) {
                 removedChainIds.add(chain.id);
                 for (const stick of chain.sticks) {
@@ -319,7 +352,7 @@ class System {
             if (targetType === 'anchor' && removedStickIds.has(anchor.targetAttachment.id)) {
                 return false;
             }
-            return targetType !== 'disc' || anchor.targetAttachment.id !== discId;
+            return targetType !== surfaceType || anchor.targetAttachment.id !== surfaceId;
         });
     }
 
@@ -359,10 +392,10 @@ class System {
     }
 
     getScreenAtPoint(point) {
-        for (let i = this.discs.length - 1; i >= 0; i--) {
-            const disc = this.discs[i];
-            if (!disc.isScreen() || !disc.containsWorldPoint(point)) continue;
-            return disc;
+        for (let i = this.screens.length - 1; i >= 0; i--) {
+            const screen = this.screens[i];
+            if (!screen.containsWorldPoint(point)) continue;
+            return screen;
         }
         return null;
     }
@@ -374,6 +407,12 @@ class System {
             const newDisc = disc.clone();
             newSys.discs.push(newDisc);
             newSys.nextDiscId = Math.max(newSys.nextDiscId, newDisc.id + 1);
+        }
+
+        for (const screen of this.screens) {
+            const newScreen = screen.clone();
+            newSys.screens.push(newScreen);
+            newSys.nextScreenId = Math.max(newSys.nextScreenId, newScreen.id + 1);
         }
 
         for (const chain of this.stickChains) {
@@ -401,10 +440,12 @@ class System {
 
     clear() {
         this.discs = [];
+        this.screens = [];
         this.stickChains = [];
         this.pencils = [];
         this.anchors = [];
         this.nextDiscId = 1;
+        this.nextScreenId = 1;
         this.nextChainId = 1;
         this.stickIdCounter = 1;
         this.nextPencilId = 1;

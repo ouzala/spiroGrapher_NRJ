@@ -1,16 +1,105 @@
 /**
- * Screen: A rotating drawing board that behaves like a hard-driven disc.
+ * Screen: A rotating drawing board with its own drive state and geometry.
  */
-class Screen extends Disc {
+class Screen {
     constructor(id, x, y, radius, rpm, color = '#6dd3c7', transparencyMode = false) {
-        super(id, x, y, radius, rpm, Infinity);
         this.kind = 'screen';
+        this.id = id;
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.restRpm = rpm;
+        this.rpm = rpm;
+        this.torque = Infinity;
+        this.angle = 0;
+        this.targetRpm = rpm;
+        this.rampStartRpm = rpm;
+        this.rampStartTime = null;
+        this.rampDuration = 2000;
+        this.driveTargetAngle = 0;
+        this.lastDriveDtMs = 0;
         this.color = color;
         this.transparencyMode = Boolean(transparencyMode);
     }
 
-    isScreen() {
-        return true;
+    update(dt, timeScale = 1) {
+        this.updateDriveTarget(dt, timeScale);
+        this.angle = this.driveTargetAngle;
+        this.rpm = this.restRpm;
+        this.angle = ((this.angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+    }
+
+    updateDriveTarget(dt, timeScale = 1) {
+        this.lastDriveDtMs = dt * timeScale;
+        const now = performance.now();
+        if (this.rampStartTime === null) {
+            this.rampStartTime = now;
+        }
+
+        const elapsed = now - this.rampStartTime;
+        if (elapsed < this.rampDuration) {
+            const t = elapsed / this.rampDuration;
+            this.restRpm = MathUtils.lerp(this.rampStartRpm, this.targetRpm, t);
+        } else {
+            this.restRpm = this.targetRpm;
+        }
+
+        const radsPerMs = (this.restRpm / 60) * 2 * Math.PI / 1000;
+        this.driveTargetAngle = this.angle + radsPerMs * dt * timeScale;
+
+        if (this.isHardDriven()) {
+            this.angle = this.driveTargetAngle;
+            this.rpm = this.restRpm;
+        }
+    }
+
+    setRpm(newRpm) {
+        this.rampStartRpm = this.restRpm;
+        this.targetRpm = newRpm;
+        this.rampStartTime = performance.now();
+    }
+
+    setTorque(newTorque) {
+        this.torque = newTorque;
+    }
+
+    getTorquePercent() {
+        if (!Number.isFinite(this.torque)) return 100;
+        return MathUtils.clamp(this.torque, 0, 100);
+    }
+
+    getTorqueRatio() {
+        return this.getTorquePercent() / 100;
+    }
+
+    isHardDriven() {
+        return !Number.isFinite(this.torque) || this.torque >= 100;
+    }
+
+    isFreewheel() {
+        return Number.isFinite(this.torque) && this.torque <= 0;
+    }
+
+    getDriveMode() {
+        if (this.isHardDriven()) return 'hardDrive';
+        if (this.isFreewheel()) return 'freewheel';
+        return 'torqueModulated';
+    }
+
+    getLegacyDriveBehavior() {
+        return this.isHardDriven() ? 'prescribedAngle' : 'softDiscAttachment';
+    }
+
+    getPointOnSurface(distance, angleOffset = 0) {
+        const angle = this.angle + angleOffset;
+        return {
+            x: this.x + distance * Math.cos(angle),
+            y: this.y + distance * Math.sin(angle)
+        };
+    }
+
+    getAttachmentPoint(attachmentDistance) {
+        return this.getPointOnSurface(attachmentDistance);
     }
 
     canAcceptAttachments() {
@@ -49,8 +138,10 @@ class Screen extends Disc {
         screen.targetRpm = this.targetRpm;
         screen.rampStartRpm = this.rampStartRpm;
         screen.rampStartTime = this.rampStartTime;
+        screen.rampDuration = this.rampDuration;
         screen.driveTargetAngle = this.driveTargetAngle;
         screen.lastDriveDtMs = this.lastDriveDtMs;
+        screen.torque = this.torque;
         return screen;
     }
 }

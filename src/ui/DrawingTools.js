@@ -125,6 +125,24 @@ class DrawingTools {
         this.app.pauseForEditing();
     }
 
+    isDriveSurfaceHit(hit) {
+        return hit?.type === 'disc' || hit?.type === 'screen';
+    }
+
+    isDriveSurfaceCenterHit(hit) {
+        return hit?.type === 'disc-center' || hit?.type === 'screen-center';
+    }
+
+    getDriveSurfaceFromHit(hit) {
+        return this.isDriveSurfaceHit(hit) || this.isDriveSurfaceCenterHit(hit)
+            ? this.app.system.getDriveSurface(hit.type.startsWith('screen') ? 'screen' : 'disc', hit.id)
+            : null;
+    }
+
+    getDriveSurfaceLabel(surface) {
+        return surface?.kind === 'screen' ? 'Screen' : 'Disc';
+    }
+
     onCanvasMouseDown(event) {
         if (this.hasModalOpen()) return;
 
@@ -155,9 +173,15 @@ class DrawingTools {
             return;
         }
 
-        if (event.button === 0 && hit?.type === 'disc-center') {
+        if (event.button === 0 && this.isDriveSurfaceCenterHit(hit)) {
             this.pauseForEditing();
-            this.dragState = { type: 'disc-move', discId: hit.id, lastWorld: world, moved: false };
+            this.dragState = {
+                type: 'disc-move',
+                surfaceType: hit.type.startsWith('screen') ? 'screen' : 'disc',
+                discId: hit.id,
+                lastWorld: world,
+                moved: false
+            };
             return;
         }
 
@@ -165,8 +189,12 @@ class DrawingTools {
             let menuTarget = null;
             if (hit?.type === 'pencil') {
                 menuTarget = { type: 'pencil-menu', pencilId: hit.id };
-            } else if (hit?.type === 'disc-center') {
-                menuTarget = { type: 'disc-menu', discId: hit.id };
+            } else if (this.isDriveSurfaceCenterHit(hit)) {
+                menuTarget = {
+                    type: 'disc-menu',
+                    surfaceType: hit.type.startsWith('screen') ? 'screen' : 'disc',
+                    discId: hit.id
+                };
             } else if (hit?.type === 'stick') {
                 menuTarget = { type: 'stick-menu', chainId: hit.chainId, stickIndex: hit.stickIndex };
             }
@@ -214,14 +242,14 @@ class DrawingTools {
         }
 
         if (this.dragState?.type === 'disc-move') {
-            const disc = this.app.system.getDisc(this.dragState.discId);
+            const disc = this.app.system.getDriveSurface(this.dragState.surfaceType, this.dragState.discId);
             if (!disc) return;
             disc.x += world.x - this.dragState.lastWorld.x;
             disc.y += world.y - this.dragState.lastWorld.y;
             this.dragState.lastWorld = world;
             this.dragState.moved = true;
             this.refreshGeometry();
-            this.updateStatus(`Disc ${disc.id} moved.`);
+            this.updateStatus(`${this.getDriveSurfaceLabel(disc)} ${disc.id} moved.`);
             return;
         }
 
@@ -307,7 +335,7 @@ class DrawingTools {
                 return;
             }
             if (drag.menuTarget.type === 'disc-menu') {
-                this.openDiscModalForEdit(drag.menuTarget.discId);
+                this.openDiscModalForEdit(drag.menuTarget.surfaceType, drag.menuTarget.discId);
                 return;
             }
             if (drag.menuTarget.type === 'stick-menu') {
@@ -336,12 +364,12 @@ class DrawingTools {
         this.dragState = { type: 'disc-placement', anchor: { ...this.pendingDiscStart }, moved: false, secondClick: true };
     }
 
-    createDiscAttachmentAtPoint(disc, world) {
-        const dx = world.x - disc.x;
-        const dy = world.y - disc.y;
-        const distance = MathUtils.clamp(Math.hypot(dx, dy), 0, disc.radius);
-        const angleOffset = Math.atan2(dy, dx) - disc.angle;
-        return { type: 'disc', id: disc.id, distance, angleOffset };
+    createDiscAttachmentAtPoint(surface, world) {
+        const dx = world.x - surface.x;
+        const dy = world.y - surface.y;
+        const distance = MathUtils.clamp(Math.hypot(dx, dy), 0, surface.radius);
+        const angleOffset = Math.atan2(dy, dx) - surface.angle;
+        return { type: surface.kind, id: surface.id, distance, angleOffset };
     }
 
     openDiscModalForAdd() {
@@ -359,14 +387,14 @@ class DrawingTools {
         this.openModal('modal-disc');
     }
 
-    openDiscModalForEdit(discId) {
-        const disc = this.app.system.getDisc(discId);
+    openDiscModalForEdit(surfaceType, discId) {
+        const disc = this.app.system.getDriveSurface(surfaceType, discId);
         if (!disc) return;
 
         this.pauseForEditing();
         this.discModalMode = 'edit';
-        this.editingDiscId = discId;
-        const isScreen = disc.isScreen();
+        this.editingDiscId = { type: surfaceType, id: discId };
+        const isScreen = disc.kind === 'screen';
         document.getElementById('modal-disc-title').textContent = isScreen ? `Edit Screen ${disc.id}` : `Edit Disc ${disc.id}`;
         document.getElementById('input-disc-radius').value = disc.radius;
         document.getElementById('input-disc-rpm').value = disc.targetRpm;
@@ -397,12 +425,12 @@ class DrawingTools {
             this.pendingDiscRadius = 0;
             this.activateTool(this.activeTool === 'screen' ? 'screen' : 'disc');
         } else if (this.discModalMode === 'edit' && this.editingDiscId !== null) {
-            const disc = this.app.system.getDisc(this.editingDiscId);
+            const disc = this.app.system.getDriveSurface(this.editingDiscId.type, this.editingDiscId.id);
             if (disc) {
-                updatedLabel = disc.isScreen() ? 'Screen' : 'Disc';
+                updatedLabel = this.getDriveSurfaceLabel(disc);
                 disc.radius = radius;
                 disc.setRpm(rpm);
-                if (disc.isScreen()) {
+                if (disc.kind === 'screen') {
                     disc.color = screenColor;
                     disc.transparencyMode = transparencyMode;
                 } else {
@@ -434,9 +462,13 @@ class DrawingTools {
 
     deleteDisc() {
         if (this.editingDiscId === null) return;
-        const disc = this.app.system.getDisc(this.editingDiscId);
-        const deletedLabel = disc?.isScreen() ? 'Screen' : 'Disc';
-        this.app.system.removeDisc(this.editingDiscId);
+        const disc = this.app.system.getDriveSurface(this.editingDiscId.type, this.editingDiscId.id);
+        const deletedLabel = this.getDriveSurfaceLabel(disc);
+        if (this.editingDiscId.type === 'screen') {
+            this.app.system.removeScreen(this.editingDiscId.id);
+        } else {
+            this.app.system.removeDisc(this.editingDiscId.id);
+        }
         this.closeDiscModal();
         this.refreshGeometry();
         this.updateStatus(`${deletedLabel} deleted.`);
@@ -497,15 +529,15 @@ class DrawingTools {
 
     handleStickToolClick(world, canvasX, canvasY, hit) {
         if (!this.pendingStick) {
-            if (!hit || (hit.type !== 'disc' && hit.type !== 'disc-center')) {
+            if (!this.isDriveSurfaceHit(hit) && !this.isDriveSurfaceCenterHit(hit)) {
                 this.updateStatus('Click on a disc or screen to place the stick start.');
                 return;
             }
 
-            const disc = this.app.system.getDisc(hit.id);
+            const disc = this.getDriveSurfaceFromHit(hit);
             if (!disc) return;
             if (!disc.canAcceptAttachments()) {
-                this.updateStatus(`Screen ${disc.id} is in transparency mode and cannot accept attachments.`);
+                this.updateStatus(`${this.getDriveSurfaceLabel(disc)} ${disc.id} cannot accept attachments.`);
                 return;
             }
 
@@ -773,7 +805,7 @@ class DrawingTools {
             };
         }
 
-        for (const disc of this.app.system.discs) {
+        for (const disc of this.app.system.getRotatingBodies()) {
             const distance = MathUtils.distance(disc.x, disc.y, locus.primary.point.x, locus.primary.point.y);
             if (distance <= disc.radius + 1e-6) {
                 if (!disc.canAcceptAttachments()) continue;
@@ -842,12 +874,13 @@ class DrawingTools {
 
     moveStickStartToWorld(chainId, world, canvasX, canvasY) {
         const chain = this.app.system.getStickChain(chainId);
-        if (!chain || !chain.startAttachment || chain.startAttachment.type !== 'disc') return;
+        if (!chain || !chain.startAttachment) return;
+        if (chain.startAttachment.type !== 'disc' && chain.startAttachment.type !== 'screen') return;
 
-        let disc = this.app.system.getDisc(chain.startAttachment.id);
+        let disc = this.app.system.getDriveSurface(chain.startAttachment);
         const hit = this.app.renderer.hitTest(canvasX, canvasY, this.app.system, 10);
-        if (hit?.type === 'disc' || hit?.type === 'disc-center') {
-            disc = this.app.system.getDisc(hit.id);
+        if (this.isDriveSurfaceHit(hit) || this.isDriveSurfaceCenterHit(hit)) {
+            disc = this.getDriveSurfaceFromHit(hit);
         }
         if (!disc || !disc.canAcceptAttachments()) return;
 

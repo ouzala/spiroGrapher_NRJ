@@ -269,8 +269,8 @@ class KinematicSolver {
 
         const type = this.system.getAttachmentType(attachment);
 
-        if (type === 'disc') {
-            const disc = this.system.getDisc(attachment.id);
+        if (type === 'disc' || type === 'screen') {
+            const disc = this.system.getDriveSurface(attachment);
             if (!disc) return { x: 0, y: 0 };
             return disc.getPointOnSurface(attachment.distance, attachment.angleOffset || 0);
         }

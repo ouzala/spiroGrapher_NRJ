@@ -193,7 +193,7 @@ class App {
 
     advanceDiscAngles(dtMs, useDiscUpdate = false) {
         if (this.solverMode === 'hybrid') {
-            for (const disc of this.system.discs) {
+            for (const disc of this.system.getRotatingBodies()) {
                 disc.updateDriveTarget(dtMs, this.timeScale);
                 if (disc.isHardDriven()) {
                     disc.angle = ((disc.angle % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
@@ -202,7 +202,7 @@ class App {
             return;
         }
 
-        for (const disc of this.system.discs) {
+        for (const disc of this.system.getRotatingBodies()) {
             if (useDiscUpdate && dtMs > 0) {
                 disc.update(dtMs, this.timeScale);
                 continue;
@@ -323,6 +323,21 @@ class App {
                 driveMode: disc.getDriveMode(),
                 legacyDriveBehavior: disc.getLegacyDriveBehavior(),
                 angle: this.roundValue(disc.angle)
+            })),
+            screens: this.system.screens.map(screen => ({
+                id: screen.id,
+                kind: screen.kind,
+                center: this.roundPoint({ x: screen.x, y: screen.y }),
+                radius: this.roundValue(screen.radius),
+                rpm: this.roundValue(screen.rpm),
+                restRpm: this.roundValue(screen.restRpm),
+                targetRpm: this.roundValue(screen.targetRpm),
+                torque: Number.isFinite(screen.torque) ? this.roundValue(screen.torque) : 'infinite',
+                color: screen.color || null,
+                transparencyMode: Boolean(screen.transparencyMode),
+                driveMode: screen.getDriveMode(),
+                legacyDriveBehavior: screen.getLegacyDriveBehavior(),
+                angle: this.roundValue(screen.angle)
             })),
             chains: this.system.stickChains.map(chain => {
                 const nodes = [];

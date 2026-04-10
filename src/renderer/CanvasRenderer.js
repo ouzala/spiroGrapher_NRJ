@@ -13,18 +13,27 @@ class CanvasRenderer {
         this.zoom = 1;
 
         this.colors = {
+            background: '#282828',
+            gridColor: '#333',
+            
             discFill: '#3498db',
             discStroke: '#2980b9',
             discCenter: '#103a5c',
+            
             stickStroke: '#e74c3c',
             stickWidth: 3,
             jointRadius: 4,
             jointFill: '#ff4d4f',
+            
             anchorFill: '#f1c40f',
             anchorStroke: '#c89d08',
+            
+            pencilDefaultColor: '#6dd3c7',
             pencilRadius: 4,
-            background: '#1a1a1a',
-            gridColor: '#333'
+
+            screenFill: '#080808',
+            screenStroke: '#080808',
+            screenCenter: '#080808',
         };
     }
 
@@ -104,9 +113,14 @@ class CanvasRenderer {
         const showMechanics = options.showMechanics !== false;
         this.clear();
 
-        for (const disc of system.discs) {
-            if (!disc.isScreen() && !showMechanics) continue;
+        for (const disc of system.getScreens()) {
             this.drawDisc(disc);
+        }
+
+        if (showMechanics) {
+            for (const disc of system.getStandardDiscs()) {
+                this.drawDisc(disc);
+            }
         }
 
         for (const pencil of system.pencils) {
@@ -118,8 +132,7 @@ class CanvasRenderer {
                 this.drawStickChain(chain);
             }
 
-            for (const disc of system.discs) {
-                if (disc.isScreen()) continue;
+            for (const disc of system.getStandardDiscs()) {
                 this.drawDiscCenter(disc);
             }
 
@@ -174,13 +187,14 @@ class CanvasRenderer {
     drawDisc(disc) {
         const canvasPos = this.worldToCanvas(disc.x, disc.y);
         const radiusPixels = disc.radius * this.scale * this.zoom;
+        const isScreen = disc.kind === 'screen';
 
-        const fillStyle = disc.isScreen()
+        const fillStyle = isScreen
             ? this.hexToRgbA(disc.color || '#6dd3c7', disc.transparencyMode ? 0.2 : 0.45)
             : this.colors.discFill;
-        const strokeStyle = disc.isScreen()
+        const strokeStyle = isScreen
             ? (disc.color || '#6dd3c7')
-            : this.colors.discStroke;
+            : this.colors.discStroke;    
 
         this.ctx.fillStyle = fillStyle;
         this.ctx.beginPath();
@@ -193,7 +207,7 @@ class CanvasRenderer {
         this.ctx.arc(canvasPos.x, canvasPos.y, radiusPixels, 0, 2 * Math.PI);
         this.ctx.stroke();
 
-        if (!disc.isScreen()) {
+        if (!isScreen) {
             const indicator = this.worldToCanvas(
                 disc.x + disc.radius * 0.7 * Math.cos(disc.angle),
                 disc.y + disc.radius * 0.7 * Math.sin(disc.angle)
@@ -299,8 +313,8 @@ class CanvasRenderer {
 
         const type = system.getAttachmentType(attachment);
 
-        if (type === 'disc') {
-            const disc = system.getDisc(attachment.id);
+        if (type === 'disc' || type === 'screen') {
+            const disc = system.getDriveSurface(attachment);
             return disc ? disc.getPointOnSurface(attachment.distance, attachment.angleOffset || 0) : null;
         }
 
@@ -369,9 +383,10 @@ class CanvasRenderer {
     getTraceWorldPosition(trace, system) {
         if (!Number.isFinite(trace.screenId)) return null;
 
-        const screen = system.getDisc(trace.screenId);
-        if (!screen || !screen.isScreen()) return null;
+        const screen = system.getScreen(trace.screenId);
+        if (!screen) return null;
         return screen.localToWorld({ x: trace.localX, y: trace.localY });
+    
     }
 
     hitTest(canvasX, canvasY, system, tolerance = 15, options = {}) {
@@ -421,16 +436,16 @@ class CanvasRenderer {
             return stickHit;
         }
 
-        for (const disc of system.discs) {
+        for (const disc of system.getRotatingBodies()) {
             const center = this.worldToCanvas(disc.x, disc.y);
             const centerDist = Math.hypot(canvasX - center.x, canvasY - center.y);
             if (centerDist <= tolerance) {
-                return { type: 'disc-center', id: disc.id };
+                return { type: `${disc.kind}-center`, id: disc.id };
             }
 
             const radiusPixels = disc.radius * this.scale * this.zoom;
             if (centerDist <= radiusPixels + tolerance) {
-                return { type: 'disc', id: disc.id };
+                return { type: disc.kind, id: disc.id };
             }
         }
 

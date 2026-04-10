@@ -96,7 +96,7 @@ class PlaybackControls {
         this.app.startTime = performance.now();
         this.app.system.simTime = 0;
 
-        for (const disc of this.app.system.discs) {
+        for (const disc of this.app.system.getRotatingBodies()) {
             disc.angle = 0;
             disc.driveTargetAngle = 0;
             disc.restRpm = disc.targetRpm;
@@ -181,18 +181,19 @@ class PlaybackControls {
         }
 
         this.rpmContainer.innerHTML = discs.map(disc => `
-            <div class="disc-rpm-row" data-disc-id="${disc.id}">
+            <div class="disc-rpm-row" data-disc-kind="${disc.kind}" data-disc-id="${disc.id}">
                 <div class="disc-rpm-header">
                     <span>${this.getDiscLabel(disc)} ${disc.id}</span>
-                    <span id="disc-rpm-value-${disc.id}">${disc.targetRpm.toFixed(0)} rpm</span>
+                    <span id="disc-rpm-value-${disc.kind}-${disc.id}">${disc.targetRpm.toFixed(0)} rpm</span>
                 </div>
-                <div class="disc-rpm-empty" id="disc-drive-note-${disc.id}">${this.getDiscDriveNote(disc)}</div>
+                <div class="disc-rpm-empty" id="disc-drive-note-${disc.kind}-${disc.id}">${this.getDiscDriveNote(disc)}</div>
                 <input
                     type="range"
                     min="-300"
                     max="300"
                     step="1"
                     value="${disc.targetRpm}"
+                    data-disc-kind="${disc.kind}"
                     data-disc-rpm="${disc.id}"
                 >
             </div>
@@ -202,11 +203,11 @@ class PlaybackControls {
     syncDiscRpmControls() {
         if (!this.rpmContainer) return;
 
-        const sliderIds = new Set(
-            Array.from(this.rpmContainer.querySelectorAll('[data-disc-rpm]')).map(element => Number(element.dataset.discRpm))
-        );
+        const sliderIds = new Set(Array.from(this.rpmContainer.querySelectorAll('[data-disc-rpm]')).map(
+            element => `${element.dataset.discKind}:${Number(element.dataset.discRpm)}`
+        ));
         const discs = this.getRpmControlledDiscs();
-        const systemIds = new Set(discs.map(disc => disc.id));
+        const systemIds = new Set(discs.map(disc => `${disc.kind}:${disc.id}`));
         const needsRerender = sliderIds.size !== systemIds.size || [...systemIds].some(id => !sliderIds.has(id));
 
         if (needsRerender) {
@@ -214,9 +215,9 @@ class PlaybackControls {
         }
 
         for (const disc of discs) {
-            const slider = this.rpmContainer.querySelector(`[data-disc-rpm="${disc.id}"]`);
-            const label = document.getElementById(`disc-rpm-value-${disc.id}`);
-            const note = document.getElementById(`disc-drive-note-${disc.id}`);
+            const slider = this.rpmContainer.querySelector(`[data-disc-kind="${disc.kind}"][data-disc-rpm="${disc.id}"]`);
+            const label = document.getElementById(`disc-rpm-value-${disc.kind}-${disc.id}`);
+            const note = document.getElementById(`disc-drive-note-${disc.kind}-${disc.id}`);
             if (!slider || !label || !note) continue;
 
             const desiredValue = String(Math.round(disc.targetRpm));
@@ -232,8 +233,9 @@ class PlaybackControls {
         const slider = event.target.closest('[data-disc-rpm]');
         if (!slider) return;
 
+        const discKind = slider.dataset.discKind;
         const discId = Number(slider.dataset.discRpm);
-        const disc = this.app.system.getDisc(discId);
+        const disc = this.app.system.getDriveSurface(discKind, discId);
         if (!disc) return;
 
         const rpm = parseFloat(slider.value);
@@ -243,7 +245,7 @@ class PlaybackControls {
             disc.rampStartRpm = rpm;
             disc.rpm = rpm;
         }
-        const label = document.getElementById(`disc-rpm-value-${disc.id}`);
+        const label = document.getElementById(`disc-rpm-value-${disc.kind}-${disc.id}`);
         if (label) {
             label.textContent = `${rpm.toFixed(0)} rpm`;
         }
@@ -266,10 +268,10 @@ class PlaybackControls {
     }
 
     getRpmControlledDiscs() {
-        return this.app.system.discs;
+        return this.app.system.getRotatingBodies();
     }
 
     getDiscLabel(disc) {
-        return disc.isScreen() ? 'Screen' : 'Disc';
+        return disc.kind === 'screen' ? 'Screen' : 'Disc';
     }
 }
