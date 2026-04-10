@@ -1,6 +1,7 @@
 const SHARED_SOLVER_PARAMETERS = {
     CONVERGENCE_TOLERANCE: 1e-3,
-    JACOBIAN_EPSILON: 1e-4
+    JACOBIAN_EPSILON: 1e-4,
+    FIXED_STEP_MS: 1000 / 60,
 };
 
 const SYSTEM_DEFAULTS = {
@@ -16,30 +17,7 @@ const POSITION_SOLVER_PARAMETERS = {
     STICK_MIN_STIFFNESS: 1e-6
 };
 
-function clampStickStiffnessPercent(value) {
-    return MathUtils.clamp(Number.isFinite(value) ? value : 0, 0, 100);
-}
 
-function transformStickStiffnessPercent(percent) {
-    const normalized = clampStickStiffnessPercent(percent) / 100;
-    return normalized;
-}
-
-function getEffectiveStickStiffnessFromPercent(percent, parameters) {
-    const clampedPercent = clampStickStiffnessPercent(percent);
-    if (clampedPercent >= parameters.STICK_RIGID_STIFFNESS_PERCENT) {
-        return parameters.STICK_RIGID_STIFFNESS;
-    }
-
-    const transformed = MathUtils.clamp(transformStickStiffnessPercent(clampedPercent), 0, 1);
-    if (transformed <= 0) {
-        return parameters.STICK_MIN_STIFFNESS;
-    }
-
-    const minStiffness = parameters.STICK_MIN_STIFFNESS;
-    const maxCompliantStiffness = parameters.STICK_MAX_COMPLIANT_STIFFNESS;
-    return minStiffness * Math.pow(maxCompliantStiffness / minStiffness, transformed);
-}
 
 window.AppConfig = {
     SYSTEM_DEFAULTS,
@@ -48,7 +26,6 @@ window.AppConfig = {
     getEffectiveStickStiffnessFromPercent,
 
     GENERAL_SIMULATION: {
-        FIXED_STEP_MS: 1000 / 60,
         ...SHARED_SOLVER_PARAMETERS
     },
 
@@ -76,3 +53,30 @@ window.AppConfig = {
         FREEWHEEL_REGULARIZATION: 1e-4
     }
 };
+
+// Helper functions for stick stiffness calibration and transformation. The UI allows users to specify stick stiffness as a percentage, which is then transformed into an effective stiffness value used by the solvers. The transformation is designed to provide a smooth and intuitive mapping from percentage to stiffness, with special handling for values at the upper end of the range to allow for a "rigid" setting.
+
+function clampStickStiffnessPercent(value) {
+    return MathUtils.clamp(Number.isFinite(value) ? value : 0, 0, 100);
+}
+
+function transformStickStiffnessPercent(percent) {
+    const normalized = clampStickStiffnessPercent(percent) / 100;
+    return normalized;
+}
+
+function getEffectiveStickStiffnessFromPercent(percent, parameters) {
+    const clampedPercent = clampStickStiffnessPercent(percent);
+    if (clampedPercent >= parameters.STICK_RIGID_STIFFNESS_PERCENT) {
+        return parameters.STICK_RIGID_STIFFNESS;
+    }
+
+    const transformed = MathUtils.clamp(transformStickStiffnessPercent(clampedPercent), 0, 1);
+    if (transformed <= 0) {
+        return parameters.STICK_MIN_STIFFNESS;
+    }
+
+    const minStiffness = parameters.STICK_MIN_STIFFNESS;
+    const maxCompliantStiffness = parameters.STICK_MAX_COMPLIANT_STIFFNESS;
+    return minStiffness * Math.pow(maxCompliantStiffness / minStiffness, transformed);
+}

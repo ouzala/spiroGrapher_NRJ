@@ -421,8 +421,8 @@
             <input type="number" class="modal-input" id="input-disc-radius" min="5" max="100" value="30">
             <label>RPM:</label>
             <input type="number" class="modal-input" id="input-disc-rpm" min="1" max="600" value="60">
-            <label>Torque:</label>
-            <input type="text" class="modal-input" id="input-disc-torque" value="infinite" placeholder="infinite">
+            <label for="input-disc-torque">Torque: <span id="input-disc-torque-value">100%</span></label>
+            <input type="range" class="modal-input" id="input-disc-torque" min="0" max="100" step="1" value="100">
             <div class="modal-buttons">
                 <button id="btn-delete-disc" style="display: none;">Delete</button>
                 <button id="btn-cancel-disc">Cancel</button>
@@ -434,8 +434,8 @@
     <div class="modal" id="modal-stick">
         <div class="modal-content">
             <h3 id="stick-menu-title">Stick Actions</h3>
-            <label>Stiffness (%):</label>
-            <input type="number" class="modal-input" id="input-stick-stiffness" min="0" max="100" step="1" value="100">
+            <label for="input-stick-stiffness">Stiffness (%): <span id="input-stick-stiffness-value">100%</span></label>
+            <input type="range" class="modal-input" id="input-stick-stiffness" min="0" max="100" step="1" value="100">
             <p id="stick-menu-note" style="font-size: 12px; color: #999; line-height: 1.5;">
                 Delete this stick or append another one to the end of the chain.
             </p>

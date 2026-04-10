@@ -29,6 +29,9 @@ class DrawingTools {
         document.getElementById('btn-confirm-disc').addEventListener('click', () => this.confirmDisc());
         document.getElementById('btn-cancel-disc').addEventListener('click', () => this.closeDiscModal());
         document.getElementById('btn-delete-disc').addEventListener('click', () => this.deleteDisc());
+        document.getElementById('input-disc-torque').addEventListener('input', event => {
+            this.updateSliderValueLabel('input-disc-torque-value', event.target.value);
+        });
 
         document.getElementById('btn-confirm-pencil').addEventListener('click', () => this.confirmPencil());
         document.getElementById('btn-cancel-pencil').addEventListener('click', () => this.closePencilModal());
@@ -38,6 +41,9 @@ class DrawingTools {
         document.getElementById('btn-delete-stick').addEventListener('click', () => this.deleteStick());
         document.getElementById('btn-save-stick').addEventListener('click', () => this.saveStickSettings());
         document.getElementById('btn-add-next-stick').addEventListener('click', () => this.startAppendStick());
+        document.getElementById('input-stick-stiffness').addEventListener('input', event => {
+            this.updateSliderValueLabel('input-stick-stiffness-value', event.target.value);
+        });
 
         const canvas = this.app.renderer.canvas;
         canvas.addEventListener('mousedown', event => this.onCanvasMouseDown(event));
@@ -334,7 +340,7 @@ class DrawingTools {
         document.getElementById('modal-disc-title').textContent = 'Set Disc RPM';
         document.getElementById('input-disc-radius').value = this.pendingDiscRadius.toFixed(1);
         document.getElementById('input-disc-rpm').value = 60;
-        document.getElementById('input-disc-torque').value = this.formatTorqueValue(AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE);
+        this.setSliderValue('input-disc-torque', 'input-disc-torque-value', AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE);
         document.getElementById('btn-delete-disc').style.display = 'none';
         this.openModal('modal-disc');
     }
@@ -349,7 +355,7 @@ class DrawingTools {
         document.getElementById('modal-disc-title').textContent = `Edit Disc ${disc.id}`;
         document.getElementById('input-disc-radius').value = disc.radius;
         document.getElementById('input-disc-rpm').value = disc.targetRpm;
-        document.getElementById('input-disc-torque').value = this.formatTorqueValue(disc.torque);
+        this.setSliderValue('input-disc-torque', 'input-disc-torque-value', disc.torque);
         document.getElementById('btn-delete-disc').style.display = 'inline-flex';
         this.openModal('modal-disc');
     }
@@ -418,6 +424,22 @@ class DrawingTools {
 
     formatTorqueValue(torque) {
         return Number.isFinite(torque) ? torque : 'infinite';
+    }
+
+    setSliderValue(inputId, labelId, rawValue) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        const numericValue = Number.isFinite(rawValue) ? rawValue : 100;
+        const clampedValue = MathUtils.clamp(numericValue, 0, 100);
+        input.value = clampedValue;
+        this.updateSliderValueLabel(labelId, clampedValue);
+    }
+
+    updateSliderValueLabel(labelId, rawValue) {
+        const label = document.getElementById(labelId);
+        if (!label) return;
+        const numericValue = Number.isFinite(Number(rawValue)) ? Number(rawValue) : 0;
+        label.textContent = `${Math.round(MathUtils.clamp(numericValue, 0, 100))}%`;
     }
 
     handleStickToolClick(world, canvasX, canvasY, hit) {
@@ -538,9 +560,11 @@ class DrawingTools {
         const stick = chain?.getStick(stickIndex) || null;
         const isLast = chain ? stickIndex === chain.sticks.length - 1 : false;
         document.getElementById('stick-menu-title').textContent = `Stick ${stickIndex + 1} Actions`;
-        document.getElementById('input-stick-stiffness').value = stick
-            ? AppConfig.clampStickStiffnessPercent(stick.stiffness)
-            : AppConfig.SYSTEM_DEFAULTS.STICK_STIFFNESS;
+        this.setSliderValue(
+            'input-stick-stiffness',
+            'input-stick-stiffness-value',
+            stick ? AppConfig.clampStickStiffnessPercent(stick.stiffness) : AppConfig.SYSTEM_DEFAULTS.STICK_STIFFNESS
+        );
         document.getElementById('btn-add-next-stick').disabled = !isLast;
         document.getElementById('stick-menu-note').textContent = isLast
             ? 'You can update this segment stiffness percentage, delete the stick, or append another stick to the chain.'
