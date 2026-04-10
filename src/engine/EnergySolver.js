@@ -232,9 +232,9 @@ class EnergySolver {
         }
     }
 
-    getEffectiveStickStiffness(stick) {
+    getEffectiveStickAxialRigidity(stick) {
         const stiffnessPercent = Number.isFinite(stick.stiffness) ? stick.stiffness : 0;
-        return AppConfig.getEffectiveStickStiffnessFromPercent(stiffnessPercent, AppConfig.ENERGY_SOLVER);
+        return AppConfig.getEffectiveStickAxialRigidityFromPercent(stiffnessPercent, AppConfig.ENERGY_SOLVER);
     }
 
     computeResiduals(topology) {
@@ -244,8 +244,9 @@ class EnergySolver {
             const dx = segment.endNode.x - segment.startNode.x;
             const dy = segment.endNode.y - segment.startNode.y;
             const distance = Math.hypot(dx, dy);
-            const effectiveStiffness = this.getEffectiveStickStiffness(segment.stick);
-            const weight = Math.sqrt(effectiveStiffness);
+            const effectiveRigidity = this.getEffectiveStickAxialRigidity(segment.stick);
+            const axialStiffness = effectiveRigidity / Math.max(segment.stick.restLength, 1e-6);
+            const weight = Math.sqrt(axialStiffness);
             residuals.push(weight * (distance - segment.stick.restLength));
         }
 

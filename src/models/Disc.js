@@ -2,7 +2,7 @@
  * Disc: A rotating disc that drives the kinematic system
  */
 class Disc {
-    constructor(id, x, y, radius, rpm, torque = AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE, color = AppConfig.COLORS.discFill) {
+    constructor(id, x, y, radius, rpm, torque = AppConfig.SYSTEM_DEFAULTS.DISC_DEF_TORQUE, color = AppConfig.COLORS.discFill) {
         this.kind = 'disc';               // model kind
         this.id = id;                    // unique identifier
         this.x = x;                      // center x position (mm)
@@ -19,6 +19,7 @@ class Disc {
         this.rampDuration = 2000;        // 2 second ramp-up (ms)
         this.driveTargetAngle = 0;       // preferred angle after the current timestep
         this.lastDriveDtMs = 0;          // effective timestep used for the latest drive target
+        this.angularVelocity = 0;        // dynamic angular velocity used by the hybrid solver
         this.color = color;              // disc color
         console.log(`[Disc] Created id=${id} at world (${x}, ${y}), radius=${radius}mm`);
     }
@@ -167,6 +168,7 @@ class Disc {
         d.rampStartTime = this.rampStartTime;
         d.driveTargetAngle = this.driveTargetAngle;
         d.lastDriveDtMs = this.lastDriveDtMs;
+        d.angularVelocity = this.angularVelocity;
         return d;
     }
 }

@@ -416,8 +416,8 @@ class DrawingTools {
         const isScreen = this.activeTool === 'screen';
         document.getElementById('modal-disc-title').textContent = isScreen ? 'Set Screen Properties' : 'Set Disc RPM';
         document.getElementById('input-disc-radius').value = this.pendingDiscRadius.toFixed(1);
-        document.getElementById('input-disc-rpm').value = 60;
-        this.setSliderValue('input-disc-torque', 'input-disc-torque-value', AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE);
+        document.getElementById('input-disc-rpm').value = AppConfig.SYSTEM_DEFAULTS.DISC_DEF_RPM;
+        this.setSliderValue('input-disc-torque', 'input-disc-torque-value', AppConfig.SYSTEM_DEFAULTS.DISC_DEF_TORQUE);
         document.getElementById('input-screen-color').value = AppConfig.COLORS.screenDefaultFill ;
         document.getElementById('input-screen-transparency').checked = false;
         this.syncDiscModalFields(isScreen);
@@ -446,7 +446,7 @@ class DrawingTools {
 
     confirmDisc() {
         const radius = Math.max(5, parseFloat(document.getElementById('input-disc-radius').value) || 30);
-        const rpm = parseFloat(document.getElementById('input-disc-rpm').value) || 60;
+        const rpm = AppConfig.SYSTEM_DEFAULTS.DISC_DEF_RPM || 0;
         const torque = this.parseTorqueInput(document.getElementById('input-disc-torque').value);
         const screenColor = document.getElementById('input-screen-color').value || '#6dd3c7';
         const transparencyMode = document.getElementById('input-screen-transparency').checked;
@@ -518,12 +518,12 @@ class DrawingTools {
     parseTorqueInput(rawValue) {
         const value = String(rawValue ?? '').trim().toLowerCase();
         if (!value || value === 'inf' || value === 'infinite' || value === 'infinity') {
-            return AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE;
+            return AppConfig.SYSTEM_DEFAULTS.DISC_DEF_TORQUE;
         }
 
         const parsed = parseFloat(value);
         if (!Number.isFinite(parsed) || parsed < 0) {
-            return AppConfig.SYSTEM_DEFAULTS.DISC_TORQUE;
+            return AppConfig.SYSTEM_DEFAULTS.DISC_DEF_TORQUE;
         }
 
         return MathUtils.clamp(parsed, 0, 100);

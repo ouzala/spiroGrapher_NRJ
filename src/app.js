@@ -153,7 +153,7 @@ class App {
         this.advanceDiscAngles(dtMs, useDiscUpdate);
         this.system.syncAttachedRotatingBodies();
 
-        const result = this.solver.solve();
+        const result = this.solver.solve({ dtMs, timeScale: this.timeScale });
         this.lastSolveResult = result;
         if (!result.success) {
             console.warn('Solver warning:', result.error);
@@ -281,6 +281,18 @@ class App {
         }
         if (this.solver.lastSolvedDiscAngles) {
             this.solver.lastSolvedDiscAngles.clear();
+        }
+        if (this.solver.dynamicNodeState) {
+            this.solver.dynamicNodeState.clear();
+        }
+        if (this.solver.dynamicDiscState) {
+            this.solver.dynamicDiscState.clear();
+        }
+        if (this.solver.constraintLambdaState) {
+            this.solver.constraintLambdaState.clear();
+        }
+        if (this.solver.bendingRestState) {
+            this.solver.bendingRestState.clear();
         }
         document.getElementById('time-display').textContent = '0.00s';
     }

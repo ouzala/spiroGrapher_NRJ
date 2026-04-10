@@ -179,7 +179,6 @@ class PlaybackControls {
             this.rpmContainer.innerHTML = '<div class="disc-rpm-empty">Add discs or screens to create live RPM controls.</div>';
             return;
         }
-
         this.rpmContainer.innerHTML = discs.map(disc => `
             <div class="disc-rpm-row" data-disc-kind="${disc.kind}" data-disc-id="${disc.id}">
                 <div class="disc-rpm-header">
@@ -189,8 +188,8 @@ class PlaybackControls {
                 <div class="disc-rpm-empty" id="disc-drive-note-${disc.kind}-${disc.id}">${this.getDiscDriveNote(disc)}</div>
                 <input
                     type="range"
-                    min="-300"
-                    max="300"
+                    min="-${AppConfig.SYSTEM_DEFAULTS.RPM_MAX}"
+                    max="${AppConfig.SYSTEM_DEFAULTS.RPM_MAX}"
                     step="1"
                     value="${disc.targetRpm}"
                     data-disc-kind="${disc.kind}"

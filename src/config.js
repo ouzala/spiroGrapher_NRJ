@@ -7,14 +7,16 @@ const SHARED_SOLVER_PARAMETERS = {
 };
 
 const SYSTEM_DEFAULTS = {
-    DISC_TORQUE: 100,           // % Based
-    STICK_STIFFNESS: 100,       // % based
+    DISC_DEF_RPM: 45,           // default disc rpm
+    DISC_DEF_TORQUE: 100,           // default value, % Based
+    STICK_STIFFNESS: 100,       // default value, % Based
     PENCIL_DEF_RADIUS: 4,       // px symbole radius
     TRACE_DEF_WIDTH: 1.5,       // px trace line width   
     TRACE_DEF_DURATION: 20,     // persistance in seconds
     ZOOM : 1,                   // Starting zoom level
     VIEW_CENTER: {x:0, y:0},    // Canvas centering
-    DISC_ALPHA : 0.8,           // Default disc rgbA transparency 
+    DISC_ALPHA : 0.8,           // Default disc rgbA transparency
+    RPM_MAX: 200,               // RPM range 
 };
 
 const POSITION_SOLVER_PARAMETERS = {
@@ -69,6 +71,7 @@ window.AppConfig = {
     clampStickStiffnessPercent,
     transformStickStiffnessPercent,
     getEffectiveStickStiffnessFromPercent,
+    getEffectiveStickAxialRigidityFromPercent,
 
     GENERAL_SIMULATION : {...SHARED_SOLVER_PARAMETERS },
 
@@ -92,12 +95,21 @@ window.AppConfig = {
 
     HYBRID_SOLVER : {
         ...POSITION_SOLVER_PARAMETERS,
-        MAX_ITERATIONS: 40,
+        MAX_ITERATIONS: 18,
         DAMPING: 1e-2,
         MAX_DISC_ANGLE_STEP: 0.4,
         MERIT_CONSTRAINT_WEIGHT: 50,
         DRIVE_WEIGHT: 5e-2,
-        FREEWHEEL_REGULARIZATION: 1e-4
+        FREEWHEEL_REGULARIZATION: 1e-4,
+        SEGMENT_DENSITY: 2.5e-2,
+        GLOBAL_DAMPING: 14,
+        BENDING_STIFFNESS: 6e1,
+        BENDING_DAMPING: 5,
+        XPBD_COMPLIANCE_SCALE: 1,
+        SUBSTEPS: 6,
+        SOFT_DRIVE_STIFFNESS: 18,
+        DRIVE_ANGULAR_DAMPING: 10,
+        SOFT_ATTACHMENT_COMPLIANCE: 4e-4
     },
 
     TEST_LANDSCAPE : {...TESTING_LANDSCAPE},
@@ -129,4 +141,8 @@ function getEffectiveStickStiffnessFromPercent(percent, parameters) {
     const minStiffness = parameters.STICK_MIN_STIFFNESS;
     const maxCompliantStiffness = parameters.STICK_MAX_COMPLIANT_STIFFNESS;
     return minStiffness * Math.pow(maxCompliantStiffness / minStiffness, transformed);
+}
+
+function getEffectiveStickAxialRigidityFromPercent(percent, parameters) {
+    return getEffectiveStickStiffnessFromPercent(percent, parameters);
 }

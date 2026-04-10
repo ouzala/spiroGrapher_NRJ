@@ -13,6 +13,8 @@ class Stick {
         this.endX = 0;                   // end point x (mm)
         this.endY = 0;                   // end point y (mm)
         this.actualLength = restLength;  // rendered length after solving
+        this.strain = 0;                 // axial strain after solving
+        this.tension = 0;                // approximate transmitted axial force
     }
 
     /**
@@ -28,6 +30,8 @@ class Stick {
         this.endX = startX + this.restLength * Math.cos(angle);
         this.endY = startY + this.restLength * Math.sin(angle);
         this.actualLength = this.restLength;
+        this.strain = 0;
+        this.tension = 0;
     }
 
     /**
@@ -44,6 +48,7 @@ class Stick {
         this.endY = endY;
         this.actualLength = MathUtils.distance(startX, startY, endX, endY);
         this.angle = MathUtils.angleToPoint(startX, startY, endX, endY);
+        this.strain = this.restLength > 1e-9 ? (this.actualLength - this.restLength) / this.restLength : 0;
     }
 
     /**
@@ -72,6 +77,8 @@ class Stick {
         s.angle = this.angle;
         s.targetAngle = this.targetAngle;
         s.setEndpoints(this.startX, this.startY, this.endX, this.endY);
+        s.strain = this.strain;
+        s.tension = this.tension;
         return s;
     }
 }
