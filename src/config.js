@@ -18,6 +18,7 @@ const SYSTEM_DEFAULTS = {
     VIEW_CENTER: {x:0, y:0},    // Canvas centering
     DISC_ALPHA : 0.8,           // Default disc rgbA transparency
     RPM_MAX: 200,               // RPM range 
+    RPM_RAMP: 1000,             // (ms) rpm edits ramp cooldown
 };
 
 const POSITION_SOLVER_PARAMETERS = {
@@ -94,7 +95,8 @@ window.AppConfig = {
         MAX_ITERATIONS: 40,
         DAMPING: 1e-2,
         ANCHOR_STIFFNESS: 1e5,
-        FIXED_POINT_STIFFNESS: 1e5
+        FIXED_POINT_STIFFNESS: 1e5,
+        SLIDER_STIFFNESS: 1e7
     },
 
     HYBRID_SOLVER : {

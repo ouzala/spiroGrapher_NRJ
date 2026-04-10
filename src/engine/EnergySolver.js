@@ -15,6 +15,7 @@ class EnergySolver {
         this.maxCoordinateStep = AppConfig.ENERGY_SOLVER.MAX_COORDINATE_STEP;
         this.anchorStiffness = AppConfig.ENERGY_SOLVER.ANCHOR_STIFFNESS;
         this.fixedPointStiffness = AppConfig.ENERGY_SOLVER.FIXED_POINT_STIFFNESS;
+        this.sliderStiffness = AppConfig.ENERGY_SOLVER.SLIDER_STIFFNESS || this.fixedPointStiffness;
         this.lastSolvedNodePositions = new Map();
     }
 
@@ -168,7 +169,7 @@ class EnergySolver {
         for (const slider of this.system.sliders) {
             topology.sliderConstraints.push({
                 slider,
-                stiffness: this.fixedPointStiffness
+                stiffness: this.sliderStiffness
             });
         }
 

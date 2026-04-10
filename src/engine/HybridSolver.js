@@ -213,12 +213,12 @@ class HybridSolver {
         for (const slider of this.system.sliders) {
             const sliderNode = this.resolveSliderNode(topology, slider);
             if (!sliderNode) continue;
-            topology.nodeCoincidenceConstraints.push({
+            topology.hardPositionConstraints.push({
                 key: `slider:${slider.id}`,
                 node: sliderNode,
-                targetNode: null,
-                attachment: { type: 'anchor', x: slider.x, y: slider.y },
-                compliance: 0
+                attachment: slider.targetAttachment
+                    ? slider.targetAttachment
+                    : { type: 'fixedPoint', x: slider.x, y: slider.y }
             });
         }
 

@@ -16,11 +16,12 @@ class Disc {
         this.targetRpm = rpm;            // target preferred rpm for smooth ramp-up
         this.rampStartRpm = rpm;         // preferred rpm at the start of a ramp
         this.rampStartTime = null;       // when ramp started
-        this.rampDuration = 2000;        // 2 second ramp-up (ms)
         this.driveTargetAngle = 0;       // preferred angle after the current timestep
         this.lastDriveDtMs = 0;          // effective timestep used for the latest drive target
         this.angularVelocity = 0;        // dynamic angular velocity used by the hybrid solver
         this.color = color;              // disc color
+        
+        this.rampDuration = AppConfig.SYSTEM_DEFAULTS.RPM_RAMP; //  rpm ramp-up (ms)
         console.log(`[Disc] Created id=${id} at world (${x}, ${y}), radius=${radius}mm`);
     }
 

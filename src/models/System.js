@@ -56,7 +56,7 @@ class System {
         return anchor;
     }
 
-    addOrReplaceSlider(stickId, distance, x, y) {
+    addOrReplaceSlider(stickId, distance, targetAttachment, x, y) {
         const stick = this.getStickById(stickId);
         if (!stick) return null;
 
@@ -69,13 +69,14 @@ class System {
         const existingSlider = this.getSliderForStick(stickId);
         if (existingSlider) {
             existingSlider.distance = clampedDistance;
+            existingSlider.targetAttachment = targetAttachment ? { ...targetAttachment } : null;
             existingSlider.x = x;
             existingSlider.y = y;
             stick.slider = existingSlider;
             return existingSlider;
         }
 
-        const slider = new Slider(this.nextSliderId++, stickId, clampedDistance, x, y);
+        const slider = new Slider(this.nextSliderId++, stickId, clampedDistance, targetAttachment ? { ...targetAttachment } : null, x, y);
         this.sliders.push(slider);
         stick.slider = slider;
         return slider;
@@ -164,6 +165,26 @@ class System {
         return this.sliders.find(slider => slider.stickId === stickId) || null;
     }
 
+    syncSliderTargets() {
+        for (const slider of this.sliders) {
+            if (!slider.targetAttachment) continue;
+            const targetType = this.getAttachmentType(slider.targetAttachment);
+            if (targetType === 'disc' || targetType === 'screen') {
+                const surface = this.getDriveSurface(slider.targetAttachment);
+                if (!surface) continue;
+                const target = surface.getPointOnSurface(
+                    slider.targetAttachment.distance || 0,
+                    slider.targetAttachment.angleOffset || 0
+                );
+                slider.x = target.x;
+                slider.y = target.y;
+            } else if (targetType === 'fixedPoint') {
+                slider.x = slider.targetAttachment.x;
+                slider.y = slider.targetAttachment.y;
+            }
+        }
+    }
+
     removeSlider(sliderId) {
         const slider = this.getSlider(sliderId);
         if (!slider) return;
@@ -250,6 +271,16 @@ class System {
 
         for (const slider of this.sliders) {
             if (!slider) continue;
+            if (slider.targetAttachment) {
+                const targetType = this.getAttachmentType(slider.targetAttachment);
+                if (targetType === 'disc' || targetType === 'screen') {
+                    if (!this.getDriveSurface(slider.targetAttachment)) {
+                        return { valid: false, message: `Slider ${slider.id}: target ${targetType} ${slider.targetAttachment.id} not found` };
+                    }
+                } else if (targetType !== 'fixedPoint') {
+                    return { valid: false, message: `Slider ${slider.id}: invalid target attachment` };
+                }
+            }
             hardConstraintCount += 2;
             hardCouplingCount += 1;
         }

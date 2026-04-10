@@ -152,6 +152,7 @@ class App {
 
         this.advanceDiscAngles(dtMs, useDiscUpdate);
         this.system.syncAttachedRotatingBodies();
+        this.system.syncSliderTargets();
 
         const result = this.solver.solve({ dtMs, timeScale: this.timeScale });
         this.lastSolveResult = result;
@@ -249,6 +250,7 @@ class App {
 
     render() {
         this.system.syncAttachedRotatingBodies();
+        this.system.syncSliderTargets();
         this.renderer.render(this.system, { showMechanics: this.showMechanics });
 
         if (this.showMechanics && this.drawingTools.pendingDiscStart) {

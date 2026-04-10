@@ -16,11 +16,12 @@ class Screen {
         this.targetRpm = rpm;
         this.rampStartRpm = rpm;
         this.rampStartTime = null;
-        this.rampDuration = 2000;
         this.driveTargetAngle = 0;
         this.lastDriveDtMs = 0;
         this.color = color;
         this.transparencyMode = Boolean(transparencyMode);
+        this.rampDuration = AppConfig.SYSTEM_DEFAULTS.RPM_RAMP; //  rpm ramp-up (ms)
+
     }
 
     update(dt, timeScale = 1) {

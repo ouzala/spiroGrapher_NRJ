@@ -157,6 +157,10 @@ class KinematicSolver {
         for (const slider of this.system.sliders) {
             const sliderPos = this.getSliderPosition(slider);
             residuals.push(slider.x - sliderPos.x, slider.y - sliderPos.y);
+            if (slider.targetAttachment) {
+                const targetPos = this.getAttachmentPosition(slider.targetAttachment);
+                residuals.push(targetPos.x - slider.x, targetPos.y - slider.y);
+            }
         }
 
         return residuals;
