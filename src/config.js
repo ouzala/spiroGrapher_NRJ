@@ -115,7 +115,9 @@ window.AppConfig = {
         SUBSTEPS: 6,
         SOFT_DRIVE_STIFFNESS: 18,
         DRIVE_ANGULAR_DAMPING: 10,
-        SOFT_ATTACHMENT_COMPLIANCE: 4e-4
+        SOFT_ATTACHMENT_COMPLIANCE: 4e-4,
+        /** Extra Gauss–Seidel sweeps on manual anchors only, after each full constraint sweep per outer iter (0 = off). */
+        ANCHOR_EXTRA_PASSES: 0
     },
 
     TEST_LANDSCAPE : {...TESTING_LANDSCAPE},

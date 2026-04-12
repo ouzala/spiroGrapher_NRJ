@@ -6,6 +6,7 @@
  * - attachments that land inside a stick are split into virtual nodes/subsegments
  * - compliant length constraints carry persistent lambdas to expose tension history
  * - adjacent segments receive second-neighbor bending constraints to spread curvature
+ * - manual anchors are projected in an early hard tier (hardAnchorConstraints) before soft attachments and segment XPBD
  */
 class HybridSolver {
     constructor(system) {
@@ -20,6 +21,7 @@ class HybridSolver {
         this.softDriveStiffness = AppConfig.HYBRID_SOLVER.SOFT_DRIVE_STIFFNESS;
         this.driveAngularDamping = AppConfig.HYBRID_SOLVER.DRIVE_ANGULAR_DAMPING;
         this.softAttachmentCompliance = AppConfig.HYBRID_SOLVER.SOFT_ATTACHMENT_COMPLIANCE;
+        this.anchorExtraPasses = AppConfig.HYBRID_SOLVER.ANCHOR_EXTRA_PASSES ?? 0;
 
         this.lastSolvedNodePositions = new Map();
         this.lastSolvedDiscAngles = new Map();
@@ -88,6 +90,7 @@ class HybridSolver {
             segments: [],
             renderedSticks: [],
             hardPositionConstraints: [],
+            hardAnchorConstraints: [],
             softPositionConstraints: [],
             nodeCoincidenceConstraints: [],
             bendingConstraints: [],
@@ -207,7 +210,7 @@ class HybridSolver {
         for (const anchor of this.system.anchors) {
             const primaryNode = this.resolveAttachmentNode(topology, anchor.primaryAttachment);
             if (!primaryNode) continue;
-            this.pushAttachmentConstraint(topology, `anchor:${anchor.id}`, primaryNode, anchor.targetAttachment, 0);
+            this.pushHardAnchorConstraint(topology, `anchor:${anchor.id}`, primaryNode, anchor.targetAttachment, 0);
         }
 
         for (const slider of this.system.sliders) {
@@ -420,6 +423,10 @@ class HybridSolver {
                 this.solvePointConstraint(constraint.key, constraint.node, this.getAttachmentPosition(constraint.attachment), 0, dt2);
             }
 
+            for (const constraint of topology.hardAnchorConstraints) {
+                this.projectCoincidenceConstraintEntry(constraint, dt2);
+            }
+
             for (const constraint of topology.softPositionConstraints) {
                 this.solvePointConstraint(
                     constraint.key,
@@ -431,23 +438,7 @@ class HybridSolver {
             }
 
             for (const constraint of topology.nodeCoincidenceConstraints) {
-                if (constraint.targetNode) {
-                    this.solveCoincidenceConstraint(
-                        constraint.key,
-                        constraint.node,
-                        constraint.targetNode,
-                        constraint.compliance || 0,
-                        dt2
-                    );
-                } else {
-                    this.solvePointConstraint(
-                        constraint.key,
-                        constraint.node,
-                        this.getAttachmentPosition(constraint.attachment),
-                        constraint.compliance || 0,
-                        dt2
-                    );
-                }
+                this.projectCoincidenceConstraintEntry(constraint, dt2);
             }
 
             for (const segment of topology.segments) {
@@ -478,6 +469,32 @@ class HybridSolver {
                     dt2
                 );
             }
+
+            for (let pass = 0; pass < this.anchorExtraPasses; pass++) {
+                for (const constraint of topology.hardAnchorConstraints) {
+                    this.projectCoincidenceConstraintEntry(constraint, dt2);
+                }
+            }
+        }
+    }
+
+    projectCoincidenceConstraintEntry(constraint, dt2) {
+        if (constraint.targetNode) {
+            this.solveCoincidenceConstraint(
+                constraint.key,
+                constraint.node,
+                constraint.targetNode,
+                constraint.compliance || 0,
+                dt2
+            );
+        } else {
+            this.solvePointConstraint(
+                constraint.key,
+                constraint.node,
+                this.getAttachmentPosition(constraint.attachment),
+                constraint.compliance || 0,
+                dt2
+            );
         }
     }
 
@@ -673,6 +690,15 @@ class HybridSolver {
             return;
         }
         topology.nodeCoincidenceConstraints.push({ key, node, targetNode: null, attachment, compliance });
+    }
+
+    pushHardAnchorConstraint(topology, key, node, attachment, compliance) {
+        const targetNode = this.resolveAttachmentNode(topology, attachment);
+        if (targetNode) {
+            topology.hardAnchorConstraints.push({ key, node, targetNode, attachment: null, compliance });
+            return;
+        }
+        topology.hardAnchorConstraints.push({ key, node, targetNode: null, attachment, compliance });
     }
 
     resolveAttachmentNode(topology, attachment) {
