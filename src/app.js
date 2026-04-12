@@ -1,3 +1,6 @@
+/** localStorage key for saved mechanism layout (discs, screens, chains, anchors, sliders, pencils). */
+const SYSTEM_LAYOUT_STORAGE_KEY = 'spiroGrapher_NRJ_systemLayout_v1';
+
 /**
  * Main Application: Orchestrates the kinematic visualizer
  */
@@ -29,6 +32,15 @@ class App {
         window.addEventListener('resize', () => this.onWindowResize());
         window.addEventListener('contextmenu', event => event.preventDefault());
         document.getElementById('btn-print').addEventListener('click', () => this.printSystemConfiguration());
+
+        const btnSaveLayout = document.getElementById('btn-save-layout');
+        if (btnSaveLayout) {
+            btnSaveLayout.addEventListener('click', () => this.saveLayoutToLocalStorage());
+        }
+        const btnReloadLayout = document.getElementById('btn-reload-layout');
+        if (btnReloadLayout) {
+            btnReloadLayout.addEventListener('click', () => this.loadLayoutFromLocalStorage());
+        }
         
         //document.getElementById('btn-load-test').addEventListener('click', () => this.loadDebugTestConfiguration());
         document.getElementById('btn-load-test').addEventListener('click', () => this.testLandscapeLoader());
@@ -449,9 +461,218 @@ class App {
                 stickChainId: pencil.stickChainId,
                 stickIndex: pencil.stickIndex,
                 positionOnStick: this.roundValue(pencil.positionOnStick),
-                point: this.roundPoint({ x: pencil.x, y: pencil.y })
+                point: this.roundPoint({ x: pencil.x, y: pencil.y }),
+                color: pencil.color || null,
+                persistenceDuration: this.roundValue(pencil.persistenceDuration)
             }))
         };
+    }
+
+    /**
+     * Snapshot for persistence: geometry, parameters, and relations (no diagnostic blocks).
+     */
+    buildLayoutSnapshot() {
+        const full = this.buildSystemConfigurationExport();
+        const chains = (full.chains || []).map(chain => ({
+            id: chain.id,
+            startAttachment: chain.startAttachment ? { ...chain.startAttachment } : null,
+            endAttachment: chain.endAttachment ? { ...chain.endAttachment } : null,
+            sticks: (chain.sticks || []).map(stick => ({
+                id: stick.id,
+                restLength: stick.restLength,
+                stiffness: stick.stiffness,
+                angle: stick.angle,
+                start: stick.start,
+                end: stick.end
+            }))
+        }));
+        return {
+            formatVersion: 1,
+            savedAt: new Date().toISOString(),
+            solverMode: this.solverMode,
+            simTime: this.roundValue(this.system.simTime || 0),
+            discs: full.discs,
+            screens: full.screens,
+            chains,
+            manualAnchors: full.manualAnchors,
+            sliders: full.sliders,
+            pencils: full.pencils
+        };
+    }
+
+    saveLayoutToLocalStorage() {
+        try {
+            const snapshot = this.buildLayoutSnapshot();
+            localStorage.setItem(SYSTEM_LAYOUT_STORAGE_KEY, JSON.stringify(snapshot));
+            this.drawingTools.updateStatus(`Layout saved (${snapshot.discs.length} discs, ${snapshot.chains.length} chains).`);
+        } catch (err) {
+            console.error(err);
+            this.drawingTools.updateStatus('Save failed: ' + (err && err.message ? err.message : String(err)));
+            alert('Could not save layout to local storage.');
+        }
+    }
+
+    loadLayoutFromLocalStorage() {
+        const raw = localStorage.getItem(SYSTEM_LAYOUT_STORAGE_KEY);
+        if (!raw) {
+            this.drawingTools.updateStatus('No saved layout found.');
+            alert('No saved layout in this browser. Use Save layout first.');
+            return;
+        }
+        let data;
+        try {
+            data = JSON.parse(raw);
+        } catch (err) {
+            this.drawingTools.updateStatus('Saved layout is corrupted JSON.');
+            alert('Saved layout could not be read.');
+            return;
+        }
+        try {
+            this.applyLayoutSnapshot(data);
+            this.drawingTools.updateStatus('Layout reloaded from local storage.');
+        } catch (err) {
+            console.error(err);
+            this.drawingTools.updateStatus('Reload failed: ' + (err && err.message ? err.message : String(err)));
+            alert('Could not restore layout: ' + (err && err.message ? err.message : String(err)));
+        }
+    }
+
+    /**
+     * Remap attachment ids after entities were recreated with fresh ids.
+     */
+    remapAttachment(attachment, discMap, screenMap, stickMap) {
+        if (!attachment) return null;
+        const next = { ...attachment };
+        delete next.normalizedType;
+        const t = next.type;
+        if (t === 'disc' && next.id != null && discMap[next.id] != null) {
+            next.id = discMap[next.id];
+        } else if (t === 'screen' && next.id != null && screenMap[next.id] != null) {
+            next.id = screenMap[next.id];
+        } else if (t === 'stick' && next.id != null && stickMap[next.id] != null) {
+            next.id = stickMap[next.id];
+        }
+        return next;
+    }
+
+    torqueFromExport(value) {
+        if (value === 'infinite' || value === Infinity) return Infinity;
+        const n = Number(value);
+        return Number.isFinite(n) ? n : AppConfig.SYSTEM_DEFAULTS.DISC_DEF_TORQUE;
+    }
+
+    applyLayoutSnapshot(data) {
+        if (!data || (!Array.isArray(data.discs) && !Array.isArray(data.screens))) {
+            throw new Error('Invalid snapshot: missing discs/screens.');
+        }
+        if (!Array.isArray(data.chains)) {
+            throw new Error('Invalid snapshot: missing chains array.');
+        }
+
+        this.pauseForEditing();
+        this.resetPlaybackState();
+        this.system.clear();
+
+        const discMap = {};
+        const screenMap = {};
+        const chainMap = {};
+        const stickMap = {};
+
+        for (const d of data.discs || []) {
+            const c = d.center || { x: 0, y: 0 };
+            const torque = this.torqueFromExport(d.torque);
+            const disc = this.system.addDisc(c.x, c.y, d.radius, d.targetRpm ?? d.rpm ?? d.restRpm ?? 0, torque);
+            discMap[d.id] = disc.id;
+            disc.angle = Number.isFinite(d.angle) ? d.angle : 0;
+            disc.driveTargetAngle = disc.angle;
+            disc.rpm = Number.isFinite(d.rpm) ? d.rpm : disc.restRpm;
+            disc.restRpm = Number.isFinite(d.restRpm) ? d.restRpm : disc.rpm;
+            disc.targetRpm = Number.isFinite(d.targetRpm) ? d.targetRpm : disc.restRpm;
+            if (d.color) disc.color = d.color;
+            if (d.centerAttachment) disc.centerAttachment = { ...d.centerAttachment };
+            disc.transparencyMode = Boolean(d.transparencyMode);
+        }
+
+        for (const s of data.screens || []) {
+            const c = s.center || { x: 0, y: 0 };
+            const torque = this.torqueFromExport(s.torque);
+            const color = s.color || AppConfig.COLORS.screenDefaultFill;
+            const screen = this.system.addScreen(c.x, c.y, s.radius, s.targetRpm ?? s.rpm ?? s.restRpm ?? 0, color, Boolean(s.transparencyMode));
+            screenMap[s.id] = screen.id;
+            screen.torque = this.torqueFromExport(s.torque);
+            screen.angle = Number.isFinite(s.angle) ? s.angle : 0;
+            screen.driveTargetAngle = screen.angle;
+            screen.rpm = Number.isFinite(s.rpm) ? s.rpm : screen.restRpm;
+            screen.restRpm = Number.isFinite(s.restRpm) ? s.restRpm : screen.rpm;
+            screen.targetRpm = Number.isFinite(s.targetRpm) ? s.targetRpm : screen.restRpm;
+            if (s.centerAttachment) screen.centerAttachment = { ...s.centerAttachment };
+        }
+
+        for (const chainData of data.chains) {
+            const chain = this.system.addStickChain(null);
+            chainMap[chainData.id] = chain.id;
+            chain.startAttachment = this.remapAttachment(chainData.startAttachment, discMap, screenMap, stickMap);
+            for (const stickData of chainData.sticks || []) {
+                const stick = new Stick(
+                    this.system.nextStickId(),
+                    stickData.restLength,
+                    stickData.stiffness != null ? stickData.stiffness : AppConfig.SYSTEM_DEFAULTS.STICK_STIFFNESS
+                );
+                const a = stickData.start || { x: 0, y: 0 };
+                const b = stickData.end || { x: a.x + stick.restLength, y: a.y };
+                stick.setEndpoints(a.x, a.y, b.x, b.y);
+                chain.addStick(stick);
+                stickMap[stickData.id] = stick.id;
+            }
+            chain.endAttachment = this.remapAttachment(chainData.endAttachment, discMap, screenMap, stickMap);
+        }
+
+        for (const anchorData of data.manualAnchors || []) {
+            const primary = this.remapAttachment(anchorData.primaryAttachment, discMap, screenMap, stickMap);
+            const target = this.remapAttachment(anchorData.targetAttachment, discMap, screenMap, stickMap);
+            if (primary) {
+                this.system.addAnchor(primary, target);
+            }
+        }
+
+        for (const sliderData of data.sliders || []) {
+            const newStickId = stickMap[sliderData.stickId];
+            if (!newStickId) continue;
+            const targetPt = sliderData.target || { x: 0, y: 0 };
+            this.system.addOrReplaceSlider(newStickId, sliderData.distance, null, targetPt.x, targetPt.y);
+        }
+
+        for (const pencilData of data.pencils || []) {
+            const newChainId = chainMap[pencilData.stickChainId];
+            if (newChainId == null) continue;
+            const color = pencilData.color || AppConfig.COLORS.pencilDefaultColor;
+            const duration = Number.isFinite(pencilData.persistenceDuration)
+                ? pencilData.persistenceDuration
+                : AppConfig.SYSTEM_DEFAULTS.TRACE_DEF_DURATION;
+            this.system.addPencil(
+                newChainId,
+                pencilData.stickIndex || 0,
+                pencilData.positionOnStick || 0,
+                color,
+                duration
+            );
+        }
+
+        if (data.solverMode && this.getSolverModes().includes(data.solverMode)) {
+            this.setSolverMode(data.solverMode);
+        }
+
+        this.system.simTime = Number.isFinite(data.simTime) ? data.simTime : 0;
+        this.system.syncAttachedRotatingBodies();
+
+        this.drawingTools.cancelPendingConstruction();
+        this.drawingTools.refreshGeometry();
+        this.playbackControls.syncSidebar();
+        this.playbackControls.syncPlaybackButtons();
+        const timeDisplay = document.getElementById('time-display');
+        if (timeDisplay) {
+            timeDisplay.textContent = `${(this.system.simTime || 0).toFixed(2)}s`;
+        }
     }
 
     printSystemConfiguration() {
